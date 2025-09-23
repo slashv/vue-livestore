@@ -1,4 +1,4 @@
-import type { LiveStoreSchema } from '@livestore/livestore'
+import type { LiveStoreSchema, Adapter, Schema, Store } from '@livestore/livestore'
 import { createStorePromise } from '@livestore/livestore'
 import {
   defineComponent,
@@ -22,9 +22,14 @@ import type {
   UseStoreOptions,
 } from './types'
 
-// ============================================
-// Main Implementation
-// ============================================
+// Define the props interface for the Provider component
+interface ProviderProps {
+  storeId?: string
+  adapter?: Adapter
+  disableDevtools?: boolean
+  confirmUnsavedChanges?: boolean
+  syncPayload?: Schema.JsonValue
+}
 
 export function createStoreContext<
   TSchema extends LiveStoreSchema,
@@ -33,10 +38,6 @@ export function createStoreContext<
   // Create unique injection keys for this store context
   const StoreKey: InjectionKey<StoreWithVueAPI<TSchema>> = Symbol(`${config.name}Store`)
   const RegistryKey: InjectionKey<Map<string, StoreWithVueAPI<TSchema>>> = Symbol(`${config.name}Registry`)
-
-  // ============================================
-  // Provider Component
-  // ============================================
 
   const Provider = defineComponent({
     name: `${config.name}StoreProvider`,
@@ -47,7 +48,7 @@ export function createStoreContext<
         default: config.storeId,
       },
       adapter: {
-        type: [Object, Function] as PropType<any>, // eslint-disable-line @typescript-eslint/no-explicit-any
+        type: [Object, Function] as PropType<Adapter>,
         required: !config.adapter,
         default: () => config.adapter,
       },
@@ -60,11 +61,11 @@ export function createStoreContext<
         default: config.confirmUnsavedChanges ?? false,
       },
       syncPayload: {
-        type: Object as PropType<any>, // eslint-disable-line @typescript-eslint/no-explicit-any
+        type: Object as PropType<Schema.JsonValue>,
         default: () => config.syncPayload,
       },
     },
-    setup(props: any, { slots }: SetupContext) { // eslint-disable-line @typescript-eslint/no-explicit-any
+    setup(props: ProviderProps, { slots }: SetupContext) {
       // Registry for multi-instance support
       let registry = inject(RegistryKey, null)
       if (!registry) {
@@ -98,16 +99,14 @@ export function createStoreContext<
       const storeRef = shallowRef<StoreWithVueAPI<TSchema>>()
 
       // Create a proxy store that's available immediately (like the original provider)
-      const proxyStore = new Proxy({} as any, { // eslint-disable-line @typescript-eslint/no-explicit-any
+      const proxyStore = new Proxy({} as StoreWithVueAPI<TSchema>, {
         get(_, key) {
           if (!storeRef.value) {
             throw new Error('LiveStore not initialized yet')
           }
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore – dynamic access
-          return storeRef.value[key]
+          return storeRef.value[key as keyof StoreWithVueAPI<TSchema>]
         },
-      }) as StoreWithVueAPI<TSchema>
+      })
 
       // Provide the proxy store immediately
       provide(StoreKey, proxyStore)
@@ -122,11 +121,11 @@ export function createStoreContext<
         ...(mergedProps.syncPayload && { syncPayload: mergedProps.syncPayload }),
       }).then((store) => {
         // Add Vue-specific methods to the store
-        const vueStore = withVueApi(store) as StoreWithVueAPI<TSchema>
+        const vueStore = withVueApi(store as unknown as Store) as StoreWithVueAPI<TSchema>
 
         // Override the useQuery and useClientDocument to use the store directly
-        vueStore.useQuery = (queryDef) => useQuery(queryDef, { store })
-        vueStore.useClientDocument = (table, id, options) => useClientDocument(table, id, options, { store })
+        vueStore.useQuery = (queryDef) => useQuery(queryDef, { store: store as unknown as Store })
+        vueStore.useClientDocument = (table, id, options) => useClientDocument(table, id, options, { store: store as unknown as Store })
 
         storeRef.value = vueStore
 
@@ -140,10 +139,12 @@ export function createStoreContext<
         () => storeRef.value,
         (updatedStore) => {
           if (updatedStore) {
+            // Cast to the expected debug store type
+            const debugStore = toRaw(updatedStore) as unknown as Store
             if (Object.keys(globalThis.__debugLiveStore).length === 0) {
-              globalThis.__debugLiveStore._ = toRaw(updatedStore) as any // eslint-disable-line @typescript-eslint/no-explicit-any
+              globalThis.__debugLiveStore._ = debugStore
             }
-            globalThis.__debugLiveStore[mergedProps.storeId] = toRaw(updatedStore) as any // eslint-disable-line @typescript-eslint/no-explicit-any
+            globalThis.__debugLiveStore[mergedProps.storeId] = debugStore
           }
         },
       )
@@ -164,10 +165,6 @@ export function createStoreContext<
       }
     },
   })
-
-  // ============================================
-  // useStore Composable
-  // ============================================
 
   const useStore = (options?: UseStoreOptions): StoreWithVueAPI<TSchema> => {
     // Multi-instance access via storeId
@@ -224,6 +221,5 @@ export function createStoreContext<
     return store
   }
 
-  // Return the tuple
-  return [Provider as any, useStore] // eslint-disable-line @typescript-eslint/no-explicit-any
+  return [Provider, useStore]
 }
