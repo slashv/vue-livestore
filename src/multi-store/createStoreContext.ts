@@ -1,20 +1,16 @@
-import type { LiveStoreSchema, Adapter, Schema, Store } from '@livestore/livestore'
-import { createStorePromise } from '@livestore/livestore'
+import type { LiveStoreSchema, Adapter, Schema } from '@livestore/livestore'
 import {
   defineComponent,
+  h,
   provide,
   inject,
   onUnmounted,
   type InjectionKey,
   type PropType,
   type SetupContext,
-  shallowRef,
-  toRaw,
-  watch,
 } from 'vue'
-import { withVueApi } from '../store'
-import { useQuery } from '../query'
-import { useClientDocument } from '../clientDocument'
+import { LiveStoreProvider } from '../provider'
+import { LiveStoreKey } from '../store'
 import type {
   CreateStoreContextConfig,
   CreateStoreContextReturn,
@@ -36,8 +32,8 @@ export function createStoreContext<
   const TConfig extends CreateStoreContextConfig<TSchema>,
 >(config: TConfig): CreateStoreContextReturn<TSchema, TConfig> {
   // Create unique injection keys for this store context
-  const StoreKey: InjectionKey<StoreWithVueAPI<TSchema>> = Symbol(`${config.name}Store`)
   const RegistryKey: InjectionKey<Map<string, StoreWithVueAPI<TSchema>>> = Symbol(`${config.name}Registry`)
+  const StoreKey: InjectionKey<StoreWithVueAPI<TSchema>> = Symbol(`${config.name}Store`)
 
   const Provider = defineComponent({
     name: `${config.name}StoreProvider`,
@@ -66,12 +62,9 @@ export function createStoreContext<
       },
     },
     setup(props: ProviderProps, { slots }: SetupContext) {
-      // Registry for multi-instance support
-      let registry = inject(RegistryKey, null)
-      if (!registry) {
-        registry = new Map<string, StoreWithVueAPI<TSchema>>()
-        provide(RegistryKey, registry)
-      }
+      // Per-provider registry for React parity (no inheritance)
+      const registry = new Map<string, StoreWithVueAPI<TSchema>>()
+      provide(RegistryKey, registry)
 
       // Merge config with props - props take precedence
       const mergedProps = {
@@ -94,75 +87,58 @@ export function createStoreContext<
           `${config.name} Provider: storeId is required. Provide it either in createStoreContext or as a prop to the Provider.`
         )
       }
-
-      // Create a ref to hold the store once loaded
-      const storeRef = shallowRef<StoreWithVueAPI<TSchema>>()
-
-      // Create a proxy store that's available immediately (like the original provider)
-      const proxyStore = new Proxy({} as StoreWithVueAPI<TSchema>, {
-        get(_, key) {
-          if (!storeRef.value) {
-            throw new Error('LiveStore not initialized yet')
+      // Delegate to LiveStoreProvider and register the created store instance
+      const StoreRegistrar = defineComponent({
+        name: `${config.name}StoreRegistrar`,
+        props: {
+          storeId: { type: String as PropType<string>, required: true },
+          registry: { type: Object as PropType<Map<string, StoreWithVueAPI<TSchema>>>, required: true },
+        },
+        setup(localProps, { slots: localSlots }) {
+          const store = inject(LiveStoreKey)
+          if (!store) {
+            throw new Error(
+              `useStore: must be used within a ${config.name} Provider. ` +
+              `Wrap your component tree with <${config.name}Provider> to provide the store context.`
+            )
           }
-          return storeRef.value[key as keyof StoreWithVueAPI<TSchema>]
+
+          // Re-provide the store under this context's key for isolation
+          provide(StoreKey, store as unknown as StoreWithVueAPI<TSchema>)
+
+          // Register immediately with the proxy store to avoid Suspense in child setup
+          localProps.registry.set(localProps.storeId, store as unknown as StoreWithVueAPI<TSchema>)
+          onUnmounted(() => {
+            localProps.registry.delete(localProps.storeId)
+          })
+
+          return () => localSlots.default?.()
         },
       })
 
-      // Provide the proxy store immediately
-      provide(StoreKey, proxyStore)
-
-      // Initiate async store creation
-      createStorePromise({
-        schema: mergedProps.schema,
-        adapter: mergedProps.adapter,
-        storeId: mergedProps.storeId,
-        debug: mergedProps.disableDevtools ? undefined : { instanceId: mergedProps.storeId },
-        ...(mergedProps.confirmUnsavedChanges && { confirmUnsavedChanges: true }),
-        ...(mergedProps.syncPayload && { syncPayload: mergedProps.syncPayload }),
-      }).then((store) => {
-        // Add Vue-specific methods to the store
-        const vueStore = withVueApi(store as unknown as Store) as StoreWithVueAPI<TSchema>
-
-        // Override the useQuery and useClientDocument to use the store directly
-        vueStore.useQuery = (queryDef) => useQuery(queryDef, { store: store as unknown as Store })
-        vueStore.useClientDocument = (table, id, options) => useClientDocument(table, id, options, { store: store as unknown as Store })
-
-        storeRef.value = vueStore
-
-        // Register in the registry for multi-instance access
-        registry!.set(mergedProps.storeId, vueStore)
-      })
-
-      // Add debug support like original provider
-      globalThis.__debugLiveStore ??= {}
-      watch(
-        () => storeRef.value,
-        (updatedStore) => {
-          if (updatedStore) {
-            // Cast to the expected debug store type
-            const debugStore = toRaw(updatedStore) as unknown as Store
-            if (Object.keys(globalThis.__debugLiveStore).length === 0) {
-              globalThis.__debugLiveStore._ = debugStore
-            }
-            globalThis.__debugLiveStore[mergedProps.storeId] = debugStore
-          }
-        },
-      )
-
-      // Cleanup on unmount
-      onUnmounted(() => {
-        if (storeRef.value) {
-          registry?.delete(mergedProps.storeId)
-        }
-      })
-
-      // Render loading state if store not ready, otherwise render children
-      return () => {
-        if (!storeRef.value) {
-          return null // Similar to original provider's loading behavior
-        }
-        return slots.default?.()
-      }
+      return () =>
+        h(
+          LiveStoreProvider as unknown as object,
+          {
+            options: {
+              schema: mergedProps.schema,
+              adapter: mergedProps.adapter,
+              storeId: mergedProps.storeId,
+              debug: mergedProps.disableDevtools ? undefined : { instanceId: mergedProps.storeId },
+              ...(mergedProps.confirmUnsavedChanges && { confirmUnsavedChanges: true }),
+              ...(mergedProps.syncPayload && { syncPayload: mergedProps.syncPayload }),
+            } as unknown,
+          },
+          {
+            default: () =>
+              h(
+                StoreRegistrar as unknown as object,
+                { storeId: mergedProps.storeId, registry },
+                { default: slots.default },
+              ),
+            loading: slots.loading ? () => slots.loading!() : undefined,
+          },
+        )
     },
   })
 
@@ -208,7 +184,7 @@ export function createStoreContext<
       return store
     }
 
-    // Default: use the store from the current context
+    // Default: use the store from this context's provider
     const store = inject(StoreKey)
 
     if (!store) {
@@ -218,7 +194,7 @@ export function createStoreContext<
       )
     }
 
-    return store
+    return store as unknown as StoreWithVueAPI<TSchema>
   }
 
   return [Provider, useStore]
