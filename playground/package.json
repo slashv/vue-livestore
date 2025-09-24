@@ -22,7 +22,8 @@
     "@livestore/sync-cf": "0.3.1",
     "@livestore/wa-sqlite": "1.0.5-dev.2",
     "vue": "^3.5.13",
-    "vue-livestore": "workspace:*"
+    "vue-livestore": "workspace:*",
+    "vue-router": "4"
   },
   "devDependencies": {
     "@tsconfig/node22": "^22.0.1",
