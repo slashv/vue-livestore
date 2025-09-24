@@ -1,13 +1,9 @@
 <script setup lang="ts">
 import { queryDb } from '@livestore/livestore'
 import { events, tables } from '../livestore/schema'
-import { inject } from 'vue'
 import { useStore } from 'vue-livestore'
 
-// This component is adapted to work with both single and multiple store setups.
-// For sinlge store setup simply use `const { store } = useStore()`
-const injectedStore = inject('store', null)
-const { store } = injectedStore ? { store: injectedStore } : useStore()
+const { store } = useStore()
 
 // Query & subscription
 const uiState$ = queryDb(tables.uiState.get(), { label: 'uiState' })
