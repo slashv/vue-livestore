@@ -4,9 +4,11 @@ import { events, tables } from '../livestore/schema'
 import { inject } from 'vue'
 import { useStore } from 'vue-livestore'
 
+// This component is adapted to work with both
+// single and multiple store setups. For sinlge
+// store setup simply use `store = useStore()`
 const injectedStore = inject('store', null)
-const globalStore = injectedStore ? null : useStore()
-const store = injectedStore || globalStore?.store
+const { store } = injectedStore ? { store: injectedStore } : useStore()
 
 // Query & subscription
 const uiState$ = queryDb(tables.uiState.get(), { label: 'uiState' })
