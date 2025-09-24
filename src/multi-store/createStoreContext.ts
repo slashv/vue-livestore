@@ -8,12 +8,14 @@ import {
   type InjectionKey,
   type PropType,
   type SetupContext,
+  type DefineComponent,
 } from 'vue'
 import { LiveStoreProvider } from '../provider'
 import { LiveStoreKey } from '../store'
 import type {
   CreateStoreContextConfig,
   CreateStoreContextReturn,
+  ComputeProviderProps,
   StoreWithVueAPI,
   UseStoreOptions,
 } from './types'
@@ -197,5 +199,5 @@ export function createStoreContext<
     return store as unknown as StoreWithVueAPI<TSchema>
   }
 
-  return [Provider, useStore]
+  return [Provider as unknown as DefineComponent<ComputeProviderProps<TConfig>>, useStore]
 }

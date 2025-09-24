@@ -1,6 +1,7 @@
 import type { Adapter, LiveStoreSchema, Store, Schema } from '@livestore/livestore'
 import type { useQuery } from '../query'
 import type { useClientDocument } from '../clientDocument'
+import type { DefineComponent } from 'vue'
 
 // ============================================
 // Core Types
@@ -74,11 +75,8 @@ export interface UseStoreOptions {
 
 export type CreateStoreContextReturn<
   TSchema extends LiveStoreSchema,
-  _TConfig extends CreateStoreContextConfig<TSchema>,
+  TConfig extends CreateStoreContextConfig<TSchema>,
 > = [
-  // Provider component - using any for Vue's complex component types
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  any,
-  // useStore composable
-  (options?: UseStoreOptions) => StoreWithVueAPI<TSchema>,
-]
+    DefineComponent<ComputeProviderProps<TConfig>>,
+    (options?: UseStoreOptions) => StoreWithVueAPI<TSchema>,
+  ]

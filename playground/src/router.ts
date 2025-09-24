@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomePage from './pages/HomePage.vue'
-import MultipleInstancesPage from './pages/MultipleInstancesPage.vue'
+import SingleStorePage from './pages/SingleStorePage.vue'
+import MultipleStoresPage from './pages/MultipleStoresPage.vue'
 import NestedStoresPage from './pages/NestedStoresPage.vue'
 
 const router = createRouter({
@@ -9,12 +9,12 @@ const router = createRouter({
     {
       path: '/',
       name: 'Home',
-      component: HomePage,
+      component: SingleStorePage,
     },
     {
       path: '/multiple-stores',
       name: 'MultipleStores',
-      component: MultipleInstancesPage,
+      component: MultipleStoresPage,
     },
     {
       path: '/nested-stores',
