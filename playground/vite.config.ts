@@ -1,4 +1,4 @@
-import { livestoreDevtoolsPlugin } from '@livestore/devtools-vite'
+// import { livestoreDevtoolsPlugin } from '@livestore/devtools-vite'
 
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [
     vue(),
     vueDevTools(),
-    livestoreDevtoolsPlugin({ schemaPath: './src/livestore/schema.ts' }),
+    // livestoreDevtoolsPlugin({ schemaPath: './src/livestore/schema.ts' }),
   ],
   worker: { format: 'es' },
 })

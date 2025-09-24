@@ -1,29 +1,29 @@
 <script setup lang="ts">
 import { queryDb } from '@livestore/livestore'
-import { makePersistedAdapter } from '@livestore/adapter-web'
-import LiveStoreSharedWorker from '@livestore/adapter-web/shared-worker?sharedworker'
-import LiveStoreWorker from '../livestore/livestore.worker?worker'
-import { schema, events, tables } from '../livestore/schema'
-import { userSchema, userTables } from '../livestore/userSchema'
-import { createStoreContext } from 'vue-livestore'
+import { WorkspaceStoreContext } from '../livestore/contexts'
+import { workspaceTables, workspaceEvents } from '../livestore/schemas/issueTrackerSchemas'
+import Projects from '../components/projects.vue'
 
-const adapter = makePersistedAdapter({
-  storage: { type: 'opfs' },
-  worker: LiveStoreWorker,
-  sharedWorker: LiveStoreSharedWorker,
-})
+const [WorkspaceProvider, useWorkspaceStore] = WorkspaceStoreContext
 
-const [UserStoreProvider, useUserStore] = createStoreContext({
-  name: 'User',
-  schema: userSchema,
-  storeId: 'user-store',
-  adapter,
-})
+const workspaceStore = useWorkspaceStore()
+
+const createWorkspace = () => workspaceStore.commit(workspaceEvents.workspaceCreated({
+  id: crypto.randomUUID(),
+  name: `Workspace: ${crypto.randomUUID()}`,
+}))
+
+const workspace = workspaceStore.useQuery(queryDb(workspaceTables.workspaces.first()))
 </script>
 
 <template>
-  <UserStoreProvider>
-    <template #loading>Loading users...</template>
-    <NestedAppContent />
-  </UserStoreProvider>
+  <button
+    @click="createWorkspace"
+    v-if="!workspace"
+  >Create workspace</button>
+  <WorkspaceProvider :store-id="workspace.id">
+    <template #loading>Loading workspace...</template>
+    Workspace: {{ workspace.name }} - Current Project: {{ workspace.currentProjectId }}
+    <Projects />
+  </WorkspaceProvider>
 </template>
