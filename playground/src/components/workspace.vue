@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { inject } from 'vue'
 import { useWorkspaceStore } from '../livestore/stores'
+import { useStore } from 'vue-livestore'
 import { queryDb } from '@livestore/livestore'
 import { tables as workspaceTables, events as workspaceEvents } from '../livestore/schemas/workspaceSchema'
 import Projects from './projects.vue'
@@ -15,18 +17,19 @@ import Projects from './projects.vue'
 // }
 
 const workspaceStore = useWorkspaceStore()
-// console.log('workspaceStore', workspaceStore.tableRefs)
 
 // workspaceStore.commit(workspaceEvents.workspaceCreated({
 //   id: crypto.randomUUID(),
 //   name: `Workspace: ${crypto.randomUUID()}`,
 // }))
 
-// const workspaces = workspaceStore.useQuery(queryDb(workspaceTables.workspaces.select()))
+
+const workspaces = workspaceStore.useQuery(queryDb(workspaceTables.workspaces.select()))
 </script>
 
 <template>
   Workspace storeId: {{ workspaceStore.storeId }}
+  {{ workspaces }}
   <!-- Workspace: {{ workspace }} -->
   <!-- <button
     v-if="!workspace"

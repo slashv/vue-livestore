@@ -1,6 +1,6 @@
 import { makePersistedAdapter } from '@livestore/adapter-web'
 import LiveStoreSharedWorker from '@livestore/adapter-web/shared-worker?sharedworker'
-import LiveStoreWorker from '../livestore/livestore.worker?worker'
+import LiveStoreWorkspacesWorker from '../livestore/livestore.workspaces.worker?worker'
 import { createStoreContext } from 'vue-livestore'
 import { schema as workspaceSchema } from './schemas/workspaceSchema'
 // import { schema as projectSchema } from './schemas/projectSchema'
@@ -8,7 +8,7 @@ import { schema as workspaceSchema } from './schemas/workspaceSchema'
 
 const workspaceAdapter = makePersistedAdapter({
   storage: { type: 'opfs' },
-  worker: LiveStoreWorker,
+  worker: LiveStoreWorkspacesWorker,
   sharedWorker: LiveStoreSharedWorker,
 })
 

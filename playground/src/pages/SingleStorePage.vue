@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { makePersistedAdapter } from '@livestore/adapter-web'
 import LiveStoreSharedWorker from '@livestore/adapter-web/shared-worker?sharedworker'
-import LiveStoreWorker from '../livestore/livestore.worker?worker'
+import LiveStoreWorker from '../livestore/livestore.todos.worker?worker'
 import { schema } from '../livestore/schemas/todoSchema'
-import { LiveStoreProvider } from 'vue-livestore'
+import { createStoreContext } from 'vue-livestore'
 import ToDos from '../components/to-dos.vue'
 
 const adapter = makePersistedAdapter({
@@ -12,16 +12,17 @@ const adapter = makePersistedAdapter({
   sharedWorker: LiveStoreSharedWorker,
 })
 
-const storeOptions = {
-  schema,
-  adapter,
-  storeId: 'test_store',
-}
+const [StoreProvider, useStore] = createStoreContext({
+  name: 'todo',
+  schema: schema,
+  adapter: adapter,
+  storeId: 'todo-store',
+})
 </script>
 
 <template>
-  <LiveStoreProvider :options="storeOptions">
+  <StoreProvider>
     <template #loading>Loading...</template>
     <ToDos />
-  </LiveStoreProvider>
+  </StoreProvider>
 </template>
