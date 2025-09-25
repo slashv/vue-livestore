@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { inject } from 'vue'
-import { useWorkspaceStore } from '../livestore/stores'
+import { useWorkspaceStore, tables as workspaceTables, events as workspaceEvents } from '../livestore/workspaces/store'
 import { useStore } from 'vue-livestore'
 import { queryDb } from '@livestore/livestore'
-import { tables as workspaceTables, events as workspaceEvents } from '../livestore/schemas/workspaceSchema'
 import Projects from './projects.vue'
 
 // const [_workspaceProvider, useWorkspaceStore] = WorkspaceStoreContext

@@ -10,10 +10,10 @@ export default defineConfig({
     vueDevTools(),
     livestoreDevtoolsPlugin({
       schemaPath: [
-        './src/livestore/schemas/todoSchema.ts',
-        './src/livestore/schemas/workspaceSchema.ts',
-        './src/livestore/schemas/projectSchema.ts',
-        './src/livestore/schemas/issueSchema.ts',
+        './src/livestore/todos/schema.ts',
+        './src/livestore/workspaces/schema.ts',
+        './src/livestore/projects/schema.ts',
+        './src/livestore/issues/schema.ts',
       ]
     }),
   ],

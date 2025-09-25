@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { WorkspaceProvider } from '../livestore/stores'
+import { WorkspaceProvider } from '../livestore/workspaces/store'
 import Workspace from '../components/workspace.vue'
 </script>
 
