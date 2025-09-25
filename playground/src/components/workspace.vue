@@ -1,0 +1,42 @@
+<script setup lang="ts">
+import { useWorkspaceStore } from '../livestore/stores'
+import { queryDb } from '@livestore/livestore'
+import { tables as workspaceTables, events as workspaceEvents } from '../livestore/schemas/workspaceSchema'
+import Projects from './projects.vue'
+
+// const [_workspaceProvider, useWorkspaceStore] = WorkspaceStoreContext
+// const [ProjectProvider, _useProjectStore] = ProjectStoreContext
+
+// const createWorkspace = () => {
+//   workspaceStore.commit(workspaceEvents.workspaceCreated({
+//     id: crypto.randomUUID(),
+//     name: `Workspace: ${crypto.randomUUID()}`,
+//   }))
+// }
+
+const workspaceStore = useWorkspaceStore()
+// console.log('workspaceStore', workspaceStore.tableRefs)
+
+// workspaceStore.commit(workspaceEvents.workspaceCreated({
+//   id: crypto.randomUUID(),
+//   name: `Workspace: ${crypto.randomUUID()}`,
+// }))
+
+// const workspaces = workspaceStore.useQuery(queryDb(workspaceTables.workspaces.select()))
+</script>
+
+<template>
+  Workspace storeId: {{ workspaceStore.storeId }}
+  <!-- Workspace: {{ workspace }} -->
+  <!-- <button
+    v-if="!workspace"
+    @click="createWorkspace"
+  >Create workspace</button>
+  <ProjectProvider
+    v-if="workspace"
+    :store-id="`project-${workspace.currentProjectId}`"
+  >
+    <template #loading>Loading project...</template>
+<Projects />
+</ProjectProvider> -->
+</template>

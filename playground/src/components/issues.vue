@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IssueStoreContext } from '../livestore/contexts'
+import { IssueStoreContext } from '../livestore/stores'
 import { queryDb } from '@livestore/livestore'
 import { issueEvents, issueTables } from '../livestore/schemas/issueTrackerSchemas'
 
