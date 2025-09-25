@@ -1,44 +1,35 @@
 <script setup lang="ts">
-import { inject } from 'vue'
-import { useWorkspaceStore, tables as workspaceTables, events as workspaceEvents } from '../livestore/workspaces/store'
-import { useStore } from 'vue-livestore'
+import {
+  useWorkspaceStore,
+  tables as workspaceTables,
+  events as workspaceEvents,
+} from '../livestore/workspaces/store'
+import { ProjectProvider } from '../livestore/projects/store'
 import { queryDb } from '@livestore/livestore'
 import Projects from './projects.vue'
 
-// const [_workspaceProvider, useWorkspaceStore] = WorkspaceStoreContext
-// const [ProjectProvider, _useProjectStore] = ProjectStoreContext
-
-// const createWorkspace = () => {
-//   workspaceStore.commit(workspaceEvents.workspaceCreated({
-//     id: crypto.randomUUID(),
-//     name: `Workspace: ${crypto.randomUUID()}`,
-//   }))
-// }
+const createWorkspace = () => {
+  workspaceStore.commit(workspaceEvents.workspaceCreated({
+    id: crypto.randomUUID(),
+    name: `Workspace: ${crypto.randomUUID()}`,
+  }))
+}
 
 const workspaceStore = useWorkspaceStore()
-
-// workspaceStore.commit(workspaceEvents.workspaceCreated({
-//   id: crypto.randomUUID(),
-//   name: `Workspace: ${crypto.randomUUID()}`,
-// }))
-
-
 const workspaces = workspaceStore.useQuery(queryDb(workspaceTables.workspaces.select()))
 </script>
 
 <template>
-  Workspace storeId: {{ workspaceStore.storeId }}
-  {{ workspaces }}
-  <!-- Workspace: {{ workspace }} -->
-  <!-- <button
-    v-if="!workspace"
+  <button
     @click="createWorkspace"
+    v-if="workspaces.length === 0"
   >Create workspace</button>
   <ProjectProvider
-    v-if="workspace"
-    :store-id="`project-${workspace.currentProjectId}`"
+    v-for="workspace in workspaces"
+    :key="workspace.id"
+    :store-id="`project-${workspace.id}`"
   >
     <template #loading>Loading project...</template>
-<Projects />
-</ProjectProvider> -->
+    <Projects />
+  </ProjectProvider>
 </template>

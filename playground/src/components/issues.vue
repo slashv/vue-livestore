@@ -1,35 +1,29 @@
 <script setup lang="ts">
-import { IssueStoreContext } from '../livestore/stores'
+import { useIssueStore, tables as issueTables, events as issueEvents } from '../livestore/issues/store'
+import { useProjectStore, tables as projectTables } from '../livestore/projects/store'
 import { queryDb } from '@livestore/livestore'
-import { issueEvents, issueTables } from '../livestore/schemas/issueTrackerSchemas'
 
-const props = defineProps<{
-  projectId: string
-}>()
-
-const [IssueProvider, useIssueStore] = IssueStoreContext
+const projectStore = useProjectStore()
+const project = projectStore.useQuery(queryDb(projectTables.projects.first()))
 
 const issueStore = useIssueStore()
-const issues = issueStore.useQuery(queryDb(issueTables.issues.where({ projectId: props.projectId })))
+const issues = issueStore.useQuery(queryDb(issueTables.issues.where({ projectId: project.value.id })))
 
 const createIssue = () => {
   issueStore.commit(issueEvents.issueCreated({
     id: crypto.randomUUID(),
     name: `Issue: ${crypto.randomUUID()}`,
-    projectId: props.projectId,
+    projectId: project.value.id,
   }))
 }
 </script>
 
 <template>
-  <IssueProvider :store-id="`issues-${props.projectId}`">
-    <template #loading>Loading issues...</template>
-    <button @click="createIssue">Create issue</button>
-    <div
-      v-for="issue in issues"
-      :key="issue.id"
-    >
-      Issue: {{ issue.name }}
-    </div>
-  </IssueProvider>
+  <button @click="createIssue">Create issue</button>
+  <div
+    v-for="issue in issues"
+    :key="issue.id"
+  >
+    {{ issue.name }}
+  </div>
 </template>
