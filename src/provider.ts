@@ -5,7 +5,7 @@ import {
   type Store,
   createStorePromise,
 } from '@livestore/livestore'
-import { LiveStoreKey, withVueApi } from './store'
+import { LiveStoreKey, withVueApi, StoreReadyStateKey, StoreInitErrorKey } from './store'
 
 export const LiveStoreProvider = defineComponent({
   name: 'LiveStoreProvider',
@@ -14,14 +14,39 @@ export const LiveStoreProvider = defineComponent({
       type: Object as PropType<CreateStoreOptions<LiveStoreSchema>>,
       required: true,
     },
+    blockUntilReady: {
+      type: Boolean,
+      default: true,
+    },
   },
   setup(props, { slots }) {
     const storeRef = ref<Store>()
 
-    // Initiate async store creation
-    createStorePromise(props.options).then((store) => {
-      storeRef.value = withVueApi(store)
+    // Provide readiness and error state for Suspense consumers
+    let resolveReady!: () => void
+    let rejectReady!: (e: unknown) => void
+    const ready = ref(false)
+    const initError = ref<unknown | null>(null)
+
+    const readyPromise = new Promise<void>((resolve, reject) => {
+      resolveReady = resolve
+      rejectReady = reject
     })
+
+    provide(StoreReadyStateKey, { ready, promise: readyPromise })
+    provide(StoreInitErrorKey, { error: initError })
+
+    // Initiate async store creation
+    createStorePromise(props.options)
+      .then((store) => {
+        storeRef.value = withVueApi(store)
+        ready.value = true
+        resolveReady()
+      })
+      .catch((e) => {
+        initError.value = e
+        rejectReady(e)
+      })
 
     // Inject a proxy immediately so that useStore() can be called while loading.
     provide(
@@ -51,8 +76,11 @@ export const LiveStoreProvider = defineComponent({
     )
 
     return () => {
-      if (!storeRef.value) {
-        return slots.loading ? slots.loading() : null
+      if (props.blockUntilReady) {
+        if (!storeRef.value) {
+          return slots.loading ? slots.loading() : null
+        }
+        return slots.default ? slots.default() : []
       }
       return slots.default ? slots.default() : []
     }

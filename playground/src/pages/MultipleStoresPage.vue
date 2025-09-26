@@ -6,19 +6,17 @@ import ToDos from '../components/to-dos.vue'
 <template>
   <div>
     <TodoProvider storeId="store-1">
-      <template #loading>Loading store-1...</template>
-      <template #default>
-        <h3>Store 1</h3>
+      <Suspense>
         <ToDos />
-      </template>
+        <template #fallback>Loading store-1...</template>
+      </Suspense>
     </TodoProvider>
 
     <TodoProvider storeId="store-2">
-      <template #loading>Loading store-2...</template>
-      <template #default>
-        <h3>Store 2</h3>
+      <Suspense>
         <ToDos />
-      </template>
+        <template #fallback>Loading store-2...</template>
+      </Suspense>
     </TodoProvider>
   </div>
 </template>

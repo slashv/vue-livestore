@@ -11,7 +11,7 @@ import {
   type DefineComponent,
 } from 'vue'
 import { LiveStoreProvider } from '../provider'
-import { LiveStoreKey } from '../store'
+import { LiveStoreKey, StoreReadyStateKey, StoreInitErrorKey } from '../store'
 import type {
   CreateStoreContextConfig,
   CreateStoreContextReturn,
@@ -130,6 +130,7 @@ export function createStoreContext<
               ...(mergedProps.confirmUnsavedChanges && { confirmUnsavedChanges: true }),
               ...(mergedProps.syncPayload && { syncPayload: mergedProps.syncPayload }),
             } as unknown,
+            blockUntilReady: false,
           },
           {
             default: () =>
@@ -194,6 +195,17 @@ export function createStoreContext<
         `useStore: must be used within a ${config.name} Provider. ` +
         `Wrap your component tree with <${config.name}Provider> to provide the store context.`
       )
+    }
+
+    // Suspend until underlying LiveStore is ready or throw init error
+    const readyState = inject(StoreReadyStateKey, null)
+    const initErr = inject(StoreInitErrorKey, null)
+
+    if (initErr?.error.value) {
+      throw initErr.error.value
+    }
+    if (readyState && !readyState.ready.value) {
+      throw readyState.promise
     }
 
     return store as unknown as StoreWithVueAPI<TSchema>
