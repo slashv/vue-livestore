@@ -44,7 +44,7 @@ type ProvidedConfigProps<T> = {
 
 // Compute which Provider props are required based on what was provided in config
 // Props in config become optional (can override), props not in config are required
-export type ComputeProviderProps<TConfig extends CreateStoreContextConfig<any>> = { // eslint-disable-line @typescript-eslint/no-explicit-any
+export type ComputeProviderProps<TConfig extends CreateStoreContextConfig<LiveStoreSchema>> = {
   disableDevtools?: boolean
   confirmUnsavedChanges?: boolean
   syncPayload?: Schema.JsonValue
