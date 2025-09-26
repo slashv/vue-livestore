@@ -13,19 +13,26 @@ export type ClientDocumentTable<Value extends Record<string, any>> =
     { partialSet: boolean; default: { id: string | SessionIdSymbol; value: Value } }
   >
 
-type UseClientDocumentResult<Value extends Record<string, any>> = {
-  id: string | SessionIdSymbol
-  query$: LiveQueryDef<Value>
+export type UseClientDocumentResult<TTableDef extends State.SQLite.ClientDocumentTableDef.TraitAny> = {
+  id: string
+  query$: LiveQueryDef<TTableDef['Value']>
 } & {
-  [K in keyof Value]: WritableComputedRef<Value[K]>
+  [K in keyof TTableDef['Value']]: WritableComputedRef<TTableDef['Value'][K]>
 }
 
-export function useClientDocument<Value extends Record<string, any>>(
-  table: ClientDocumentTable<Value>,
-  id?: string | SessionIdSymbol,
-  options?: RowQuery.GetOrCreateOptions<ClientDocumentTable<Value>>,
+export function useClientDocument<
+  TTableDef extends State.SQLite.ClientDocumentTableDef.Trait<
+    any,
+    any,
+    any,
+    { partialSet: boolean; default: { id: string | SessionIdSymbol; value: any } }
+  >
+>(
+  table: TTableDef,
+  id?: State.SQLite.ClientDocumentTableDef.DefaultIdType<TTableDef> | SessionIdSymbol,
+  options?: RowQuery.GetOrCreateOptions<TTableDef>,
   storeArg?: { store: Store }
-): UseClientDocumentResult<Value> {
+): UseClientDocumentResult<TTableDef> {
   /* Used for clientDocuments only (UI state)
    *
    * WARNING: The interface for this is still experimental.
@@ -59,20 +66,31 @@ export function useClientDocument<Value extends Record<string, any>>(
     throw new Error('Client document requires an ID')
   }
 
-  const query$ = queryDb(table.get(documentId, options))
-  const state = shallowRef<Value>(store.query(query$))
+  let idStr: string
+  if (documentId === SessionIdSymbol) {
+    idStr = store.clientSession.sessionId
+  } else if (typeof documentId === 'string') {
+    idStr = documentId
+  } else {
+    idStr = store.clientSession.sessionId
+  }
+
+  const query$: LiveQueryDef<TTableDef['Value']> = queryDb(
+    table.get(documentId as string | typeof SessionIdSymbol, options)
+  )
+  const state = shallowRef<TTableDef['Value']>(store.query(query$))
 
   const unsubscribe = store.subscribe(query$, {
-    onUpdate: (result: Value) => {
+    onUpdate: (result: TTableDef['Value']) => {
       state.value = result
     }
   })
 
-  const setState = (value: Value) => {
-    store.commit(table.set(value, documentId))
+  const setState = (value: TTableDef['Value']) => {
+    store.commit(table.set(value, documentId as string | typeof SessionIdSymbol))
   }
 
-  type V = Value
+  type V = TTableDef['Value']
   const computedFields = {} as { [K in keyof V]: WritableComputedRef<V[K]> }
   for (const key in state.value) {
     computedFields[key as keyof V] = computed({
@@ -87,7 +105,7 @@ export function useClientDocument<Value extends Record<string, any>>(
 
   return {
     ...computedFields,
-    id: documentId,
+    id: idStr,
     query$
   }
 }

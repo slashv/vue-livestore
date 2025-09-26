@@ -18,6 +18,11 @@ export const LiveStoreProvider = defineComponent({
   setup(props, { slots }) {
     const storeRef = ref<Store>()
 
+    // Initiate async store creation
+    createStorePromise(props.options).then((store) => {
+      storeRef.value = withVueApi(store)
+    })
+
     // Inject a proxy immediately so that useStore() can be called while loading.
     provide(
       LiveStoreKey,
@@ -31,11 +36,6 @@ export const LiveStoreProvider = defineComponent({
         },
       }),
     )
-
-    // Initiate async store creation
-    createStorePromise(props.options).then((store) => {
-      storeRef.value = withVueApi(store)
-    })
 
     // Add __debugLiveStore property to window / globalThis
     globalThis.__debugLiveStore ??= {}

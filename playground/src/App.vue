@@ -1,29 +1,10 @@
-<script setup lang="ts">
-import { makePersistedAdapter } from '@livestore/adapter-web'
-import LiveStoreSharedWorker from '@livestore/adapter-web/shared-worker?sharedworker'
-import LiveStoreWorker from './livestore/livestore.worker?worker'
-import { schema } from './livestore/schema'
-import { LiveStoreProvider } from 'vue-livestore'
-import ToDos from './components/to-dos.vue'
-
-const adapter = makePersistedAdapter({
-  storage: { type: 'opfs' },
-  worker: LiveStoreWorker,
-  sharedWorker: LiveStoreSharedWorker,
-})
-
-const storeOptions = {
-  schema,
-  adapter,
-  storeId: 'test_store',
-}
-</script>
-
 <template>
-  <LiveStoreProvider :options="storeOptions">
-    <template #loading>
-      <div>Loading LiveStore...</div>
-    </template>
-    <ToDos />
-  </LiveStoreProvider>
+  <div style="padding: 4rem; max-width: 800px;">
+    <nav>
+      <router-link to="/">Single Store</router-link> |
+      <router-link to="/multiple-stores">Multiple Stores</router-link> |
+      <router-link to="/nested-stores">Nested Stores</router-link>
+    </nav>
+    <router-view />
+  </div>
 </template>

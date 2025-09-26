@@ -8,7 +8,14 @@ export default defineConfig({
   plugins: [
     vue(),
     vueDevTools(),
-    livestoreDevtoolsPlugin({ schemaPath: './src/livestore/schema.ts' }),
+    livestoreDevtoolsPlugin({
+      schemaPath: [
+        './src/livestore/todos/schema.ts',
+        './src/livestore/workspaces/schema.ts',
+        './src/livestore/projects/schema.ts',
+        './src/livestore/issues/schema.ts',
+      ]
+    }),
   ],
   worker: { format: 'es' },
 })

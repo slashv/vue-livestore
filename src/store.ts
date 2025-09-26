@@ -24,6 +24,7 @@ export const useStore = (options?: { store: Store }) => {
     return { store: withVueApi(options.store) }
   }
   const injected = inject(LiveStoreKey)
+  // Do not throw here; allow proxy accessors to suspend when needed
   if (!injected) {
     throw new Error('LiveStore instance not provided. Make sure to install the provider and pass a store.')
   }
