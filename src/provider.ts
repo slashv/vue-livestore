@@ -1,4 +1,4 @@
-import { defineComponent, provide, ref, markRaw, h, type PropType } from 'vue'
+import { defineComponent, provide, ref, markRaw, h, Suspense, type PropType } from 'vue'
 import {
   type CreateStoreOptions,
   type LiveStoreSchema,
@@ -56,10 +56,23 @@ export const LiveStoreProvider = defineComponent({
 
     return () => {
       if (!slots.default) return []
-      if (!props.suspend) {
-        return slots.default()
+      // If a loading slot is provided, render an inner Suspense that awaits readiness
+      if (slots.loading) {
+        return h(
+          Suspense,
+          {},
+          {
+            default: () => h(Gate as unknown as object, {}, { default: () => slots.default!() }),
+            fallback: () => slots.loading!(),
+          },
+        )
       }
-      return h(Gate as unknown as object, {}, { default: () => slots.default!() })
+      // Optional explicit gating when suspend=true
+      if (props.suspend) {
+        return h(Gate as unknown as object, {}, { default: () => slots.default!() })
+      }
+      // Default: render immediately; children may suspend on access
+      return slots.default()
     }
   },
 })

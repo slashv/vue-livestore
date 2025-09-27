@@ -20,17 +20,10 @@ const storeOptions = {
 </script>
 
 <template>
-  <LiveStoreProvider
-    :options="storeOptions"
-    suspend
-  >
-    <Suspense>
-      <template #default>
-        <ToDos />
-      </template>
-      <template #fallback>
-        <div>Loading…</div>
-      </template>
-    </Suspense>
-  </LiveStoreProvider>
+  <Suspense>
+    <LiveStoreProvider :options="storeOptions">
+      <ToDos />
+    </LiveStoreProvider>
+    <template #fallback>Loading…</template>
+  </Suspense>
 </template>
