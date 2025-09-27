@@ -15,7 +15,7 @@ export const LiveStoreProvider = defineComponent({
     },
     suspend: {
       type: Boolean as PropType<boolean>,
-      default: true,
+      default: false,
     },
   },
   setup(props, { slots }) {
@@ -56,10 +56,10 @@ export const LiveStoreProvider = defineComponent({
 
     return () => {
       if (!slots.default) return []
-      if (props.suspend) {
-        return h(Gate as unknown as object, {}, { default: () => slots.default!() })
+      if (!props.suspend) {
+        return slots.default()
       }
-      return slots.default()
+      return h(Gate as unknown as object, {}, { default: () => slots.default!() })
     }
   },
 })

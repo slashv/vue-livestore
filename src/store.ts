@@ -69,22 +69,11 @@ export const createDeferredStoreProxy = (
           throw readyPromise
         }
       }
+      // If not ready or errored, suspend or error on any property access
+      throwIfNotReady()
 
       const store = getStore()
-      if (!store) {
-        return (...args: unknown[]) => {
-          throwIfNotReady()
-          // After ready, retry the call
-          const s = getStore()
-          const fn = s[prop]
-          if (typeof fn === 'function') {
-            return fn.apply(s, args)
-          }
-          return fn
-        }
-      }
-
-      const value = store[prop]
+      const value = store?.[prop]
       if (typeof value === 'function') {
         return (...args: unknown[]) => value.apply(store, args)
       }

@@ -129,10 +129,8 @@ describe('Multi-Store: Minimal Configuration', () => {
           storeId: 'test-minimal',
           adapter: makeInMemoryAdapter(),
         }, {
-          default: () => h(Suspense, {}, {
-            default: () => h(TestComponent),
-            fallback: () => h('div', {}, 'Loading...'),
-          })
+          default: () => h(TestComponent),
+          loading: () => h('div', {}, 'Loading...'),
         })
       }
     })
@@ -202,10 +200,8 @@ describe('Multi-Store: Full Configuration', () => {
       setup() {
         // Only children required - all config satisfied
         return () => h(FullProvider, {}, {
-          default: () => h(Suspense, {}, {
-            default: () => h(TestComponent),
-            fallback: () => h('div', {}, 'Loading...'),
-          })
+          default: () => h(TestComponent),
+          loading: () => h('div', {}, 'Loading...'),
         })
       }
     })
@@ -246,10 +242,8 @@ describe('Multi-Store: Full Configuration', () => {
         return () => h(FullProvider, {
           storeId: 'override-id', // Override the default
         }, {
-          default: () => h(Suspense, {}, {
-            default: () => h(TestComponent),
-            fallback: () => h('div', {}, 'Loading...'),
-          })
+          default: () => h(TestComponent),
+          loading: () => h('div', {}, 'Loading...'),
         })
       }
     })
@@ -296,16 +290,12 @@ describe('Multi-Store: Multiple Instances', () => {
       setup() {
         return () => h('div', {}, [
           h(MultiProvider, { storeId: 'instance-1' }, {
-            default: () => h(Suspense, {}, {
-              default: () => h(InstanceComponent, { instanceId: 'instance-1' }),
-              fallback: () => h('div', {}, 'Loading instance 1...'),
-            })
+            default: () => h(InstanceComponent, { instanceId: 'instance-1' }),
+            loading: () => h('div', {}, 'Loading instance 1...'),
           }),
           h(MultiProvider, { storeId: 'instance-2' }, {
-            default: () => h(Suspense, {}, {
-              default: () => h(InstanceComponent, { instanceId: 'instance-2' }),
-              fallback: () => h('div', {}, 'Loading instance 2...'),
-            })
+            default: () => h(InstanceComponent, { instanceId: 'instance-2' }),
+            loading: () => h('div', {}, 'Loading instance 2...'),
           }),
         ])
       }
@@ -370,10 +360,8 @@ describe('Multi-Store: Nested Stores', () => {
         return h(ProjectProvider, {
           storeId: `project-of-${this.workspaceStore.storeId}`
         }, {
-          default: () => h(Suspense, {}, {
-            default: () => h(ProjectComponent),
-            fallback: () => h('div', {}, 'Loading project...'),
-          })
+          default: () => h(ProjectComponent),
+          loading: () => h('div', {}, 'Loading project...'),
         })
       }
     })
@@ -381,10 +369,8 @@ describe('Multi-Store: Nested Stores', () => {
     const WrapperComponent = defineComponent({
       setup() {
         return () => h(WorkspaceProvider, {}, {
-          default: () => h(Suspense, {}, {
-            default: () => h(WorkspaceComponent),
-            fallback: () => h('div', {}, 'Loading workspace...'),
-          })
+          default: () => h(WorkspaceComponent),
+          loading: () => h('div', {}, 'Loading workspace...'),
         })
       }
     })
@@ -476,26 +462,20 @@ describe('Multi-Store: Loading', () => {
 
     const WrapperComponent = defineComponent({
       setup() {
-        // All stores load concurrently
+        // All stores load concurrently; providers handle their own loading
         return () => h(TodoProvider, {}, {
           default: () => h(WorkspaceProvider, {}, {
             default: () => h(ProjectProvider, {}, {
               default: () => h('div', { class: 'dashboard' }, [
-                h(Suspense, {}, {
-                  default: () => h(TodoSection),
-                  fallback: () => h('div', {}, 'Loading todos...'),
-                }),
-                h(Suspense, {}, {
-                  default: () => h(WorkspaceSection),
-                  fallback: () => h('div', {}, 'Loading workspace...'),
-                }),
-                h(Suspense, {}, {
-                  default: () => h(ProjectSection),
-                  fallback: () => h('div', {}, 'Loading project...'),
-                }),
-              ])
-            })
-          })
+                h(TodoSection),
+                h(WorkspaceSection),
+                h(ProjectSection),
+              ]),
+              loading: () => h('div', {}, 'Loading project...'),
+            }),
+            loading: () => h('div', {}, 'Loading workspace...'),
+          }),
+          loading: () => h('div', {}, 'Loading todos...'),
         })
       }
     })
@@ -550,10 +530,8 @@ describe('Multi-Store: Store Methods', () => {
     const WrapperComponent = defineComponent({
       setup() {
         return () => h(TodoProvider, {}, {
-          default: () => h(Suspense, {}, {
-            default: () => h(TestComponent),
-            fallback: () => h('div', {}, 'Loading...'),
-          })
+          default: () => h(TestComponent),
+          loading: () => h('div', {}, 'Loading...'),
         })
       }
     })
@@ -607,10 +585,8 @@ describe('Multi-Store: Store Methods', () => {
     const WrapperComponent = defineComponent({
       setup() {
         return () => h(TodoProvider, {}, {
-          default: () => h(Suspense, {}, {
-            default: () => h(TestComponent),
-            fallback: () => h('div', {}, 'Loading...'),
-          })
+          default: () => h(TestComponent),
+          loading: () => h('div', {}, 'Loading...'),
         })
       }
     })

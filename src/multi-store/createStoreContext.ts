@@ -117,24 +117,20 @@ export function createStoreContext<
         },
       })
 
-      // Optional gate that throws until provider store is ready; used only when loading slot is provided
+      // Optional gate that awaits until provider store is ready; used only when loading slot is provided
       const ReadyGate = defineComponent({
         name: `${config.name}ReadyGate`,
-        setup(_p, { slots: s }) {
+        async setup(_p, { slots: s }) {
           const readyState = inject(StoreReadyStateKey, null)
-          if (!readyState) {
-            // No ready state means nothing to gate
-            return () => s.default?.()
-          }
-          if (!readyState.ready.value) {
-            throw readyState.promise
+          if (readyState && !readyState.ready.value) {
+            await readyState.promise
           }
           return () => s.default?.()
         },
       })
 
-      return () => {
-        const providerVNode = h(
+      return () =>
+        h(
           LiveStoreProvider as unknown as object,
           {
             options: {
@@ -147,28 +143,26 @@ export function createStoreContext<
             } as unknown,
           },
           {
-            default: () =>
-              h(
+            default: () => {
+              const inner = h(
                 StoreRegistrar as unknown as object,
                 { storeId: mergedProps.storeId, registry },
                 { default: slots.default },
-              ),
+              )
+              if (slots.loading) {
+                return h(
+                  Suspense,
+                  {},
+                  {
+                    default: () => h(ReadyGate as unknown as object, {}, { default: () => inner }),
+                    fallback: () => slots.loading!(),
+                  },
+                )
+              }
+              return inner
+            },
           },
         )
-
-        if (slots.loading) {
-          return h(
-            Suspense,
-            {},
-            {
-              default: () => h(ReadyGate as unknown as object, {}, { default: () => providerVNode }),
-              fallback: () => slots.loading!(),
-            },
-          )
-        }
-
-        return providerVNode
-      }
     },
   })
 
