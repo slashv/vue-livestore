@@ -4,7 +4,7 @@ import { State, Events, Schema, makeSchema, queryDb } from '@livestore/livestore
 import { mount } from '@vue/test-utils'
 import { LiveStoreProvider } from '../src/provider'
 import { useStore, useQuery } from '../src'
-import { defineComponent, h, nextTick } from 'vue'
+import { defineComponent, h, nextTick, Suspense } from 'vue'
 
 const scheduler = typeof setImmediate === 'function' ? setImmediate : setTimeout;
 function flushPromises() {
@@ -84,57 +84,52 @@ describe('LiveStore Integration', () => {
         TestComponent
       },
       setup() {
-        return () => h(LiveStoreProvider,
-          { options: storeOptions },
-          { default: () => h(TestComponent), loading: () => h('div', {}, 'loading') }
-        )
+        return () => h(Suspense, {}, {
+          default: () => h(LiveStoreProvider,
+            { options: storeOptions },
+            { default: () => h(TestComponent) }
+          ),
+          fallback: () => h('div', {}, 'loading')
+        })
       }
     })
 
     const wrapper = mount(WrapperComponent)
-    // Wait for the store to be ready
-    wrapper.vm.$nextTick(async () => {
+    // Wait for Suspense to resolve and component to mount
+    for (let i = 0; i < 5 && !wrapper.findComponent(TestComponent).exists(); i++) {
       await flushPromises()
-
-      // Find the test component
-      const testComponent = wrapper.findComponent(TestComponent)
-      expect(testComponent.exists()).toBe(true)
-
-      // Initial state - should have no todos
-      expect(testComponent.vm.todos).toHaveLength(0)
-      expect(testComponent.find('#count').text()).toBe('0')
-
-      // Create a todo
-      const store = testComponent.vm.store
-      if (!store) throw new Error('Store is undefined')
-
-      store.commit(events.todoCreated({
-        id: 'todo-1',
-        text: 'Test Todo',
-        completed: false
-      }))
-
-      // Wait for reactive updates
       await nextTick()
+    }
+    const testComponent = wrapper.findComponent(TestComponent)
+    expect(testComponent.exists()).toBe(true)
 
-      // Should have one todo now
-      expect(testComponent.vm.todos).toHaveLength(1)
-      expect(testComponent.find('#count').text()).toBe('1')
-      expect(testComponent.find('li').text()).toContain('Test Todo')
-      expect(testComponent.find('li').text()).toContain('Pending')
+    expect(testComponent.vm.todos).toHaveLength(0)
+    expect(testComponent.find('#count').text()).toBe('0')
 
-      // Update the todo
-      store.commit(events.todoUpdated({
-        id: 'todo-1',
-        completed: true
-      }))
+    const store = testComponent.vm.store
+    if (!store) throw new Error('Store is undefined')
 
-      // Wait for reactive updates
-      await nextTick()
+    store.commit(events.todoCreated({
+      id: 'todo-1',
+      text: 'Test Todo',
+      completed: false
+    }))
 
-      // Todo should be marked as completed
-      expect(testComponent.vm.todos).toHaveLength(1)
-      expect(testComponent.find('li').text()).toContain('Done')
-    })
+    await nextTick()
+
+    expect(testComponent.vm.todos).toHaveLength(1)
+    expect(testComponent.find('#count').text()).toBe('1')
+    expect(testComponent.find('li').text()).toContain('Test Todo')
+    expect(testComponent.find('li').text()).toContain('Pending')
+
+    store.commit(events.todoUpdated({
+      id: 'todo-1',
+      completed: true
+    }))
+
+    await nextTick()
+
+    expect(testComponent.vm.todos).toHaveLength(1)
+    expect(testComponent.find('li').text()).toContain('Done')
   })
 })

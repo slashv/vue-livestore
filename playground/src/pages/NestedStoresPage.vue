@@ -5,9 +5,11 @@ import Workspace from '../components/workspace.vue'
 
 <template>
   <WorkspaceProvider store-id="workspace-1">
-    <template #loading>Loading workspace...</template>
-    <div style="display: flex; flex-direction: column; gap: 10px; margin: 10px 0px;">
-      <Workspace />
-    </div>
+    <Suspense>
+      <div style="display: flex; flex-direction: column; gap: 10px; margin: 10px 0px;">
+        <Workspace />
+      </div>
+      <template #fallback>Loading workspace...</template>
+    </Suspense>
   </WorkspaceProvider>
 </template>
