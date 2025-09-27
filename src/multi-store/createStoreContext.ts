@@ -12,7 +12,7 @@ import {
   type DefineComponent,
 } from 'vue'
 import { LiveStoreProvider } from '../provider'
-import { LiveStoreKey, type LiveStoreInstance } from '../store'
+import { LiveStoreKey, StoreReadyStateKey, type LiveStoreInstance } from '../store'
 import type {
   CreateStoreContextConfig,
   CreateStoreContextReturn,
@@ -90,23 +90,25 @@ export function createStoreContext<
           `${config.name} Provider: storeId is required. Provide it either in createStoreContext or as a prop to the Provider.`
         )
       }
-      // Delegate to LiveStoreProvider and register the created store instance (no proxy)
+      // Delegate to LiveStoreProvider and register the created store instance (proxy provided by provider)
       const StoreRegistrar = defineComponent({
         name: `${config.name}StoreRegistrar`,
         props: {
           storeId: { type: String as PropType<string>, required: true },
           registry: { type: Object as PropType<Map<string, StoreWithVueAPI<TSchema>>>, required: true },
-          // Receive the resolved store from LiveStoreProvider via slot props
-          store: { type: Object as PropType<StoreWithVueAPI<TSchema>>, required: true },
         },
         setup(localProps, { slots: localSlots }) {
+          const injectedStore = inject(LiveStoreKey)
+          if (!injectedStore) {
+            throw new Error(`${config.name} Provider: LiveStore is not available in StoreRegistrar`)
+          }
           // Provide the store under this context's key for isolation
-          provide(StoreKey, localProps.store as unknown as StoreWithVueAPI<TSchema>)
-          // Also provide LiveStoreKey locally so generic hooks can work inside this subtree
-          provide(LiveStoreKey, localProps.store as unknown as LiveStoreInstance)
+          provide(StoreKey, injectedStore as unknown as StoreWithVueAPI<TSchema>)
+          // Also re-provide LiveStoreKey locally so generic hooks can work inside this subtree
+          provide(LiveStoreKey, injectedStore as unknown as LiveStoreInstance)
 
           // Register the provided store for multi-instance lookup
-          localProps.registry.set(localProps.storeId, localProps.store as unknown as StoreWithVueAPI<TSchema>)
+          localProps.registry.set(localProps.storeId, injectedStore as unknown as StoreWithVueAPI<TSchema>)
           onUnmounted(() => {
             localProps.registry.delete(localProps.storeId)
           })
@@ -115,36 +117,58 @@ export function createStoreContext<
         },
       })
 
-      return () =>
-        h(
-          Suspense,
-          {},
+      // Optional gate that throws until provider store is ready; used only when loading slot is provided
+      const ReadyGate = defineComponent({
+        name: `${config.name}ReadyGate`,
+        setup(_p, { slots: s }) {
+          const readyState = inject(StoreReadyStateKey, null)
+          if (!readyState) {
+            // No ready state means nothing to gate
+            return () => s.default?.()
+          }
+          if (!readyState.ready.value) {
+            throw readyState.promise
+          }
+          return () => s.default?.()
+        },
+      })
+
+      return () => {
+        const providerVNode = h(
+          LiveStoreProvider as unknown as object,
+          {
+            options: {
+              schema: mergedProps.schema,
+              adapter: mergedProps.adapter,
+              storeId: mergedProps.storeId,
+              debug: mergedProps.disableDevtools ? undefined : { instanceId: mergedProps.storeId },
+              ...(mergedProps.confirmUnsavedChanges && { confirmUnsavedChanges: true }),
+              ...(mergedProps.syncPayload && { syncPayload: mergedProps.syncPayload }),
+            } as unknown,
+          },
           {
             default: () =>
               h(
-                LiveStoreProvider as unknown as object,
-                {
-                  options: {
-                    schema: mergedProps.schema,
-                    adapter: mergedProps.adapter,
-                    storeId: mergedProps.storeId,
-                    debug: mergedProps.disableDevtools ? undefined : { instanceId: mergedProps.storeId },
-                    ...(mergedProps.confirmUnsavedChanges && { confirmUnsavedChanges: true }),
-                    ...(mergedProps.syncPayload && { syncPayload: mergedProps.syncPayload }),
-                  } as unknown,
-                },
-                {
-                  default: ({ store }: { store: StoreWithVueAPI<TSchema> }) =>
-                    h(
-                      StoreRegistrar as unknown as object,
-                      { storeId: mergedProps.storeId, registry, store },
-                      { default: slots.default },
-                    ),
-                },
+                StoreRegistrar as unknown as object,
+                { storeId: mergedProps.storeId, registry },
+                { default: slots.default },
               ),
-            fallback: slots.loading ? () => slots.loading!() : undefined,
           },
         )
+
+        if (slots.loading) {
+          return h(
+            Suspense,
+            {},
+            {
+              default: () => h(ReadyGate as unknown as object, {}, { default: () => providerVNode }),
+              fallback: () => slots.loading!(),
+            },
+          )
+        }
+
+        return providerVNode
+      }
     },
   })
 

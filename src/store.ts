@@ -1,4 +1,4 @@
-import { inject, type InjectionKey, type Ref } from 'vue'
+import { inject, markRaw, type InjectionKey, type Ref } from 'vue'
 import { type Store } from '@livestore/livestore'
 import { useQuery } from './query'
 import { useClientDocument } from './clientDocument'
@@ -50,4 +50,47 @@ export const useStore = (options?: { store: Store }) => {
     throw initErr.error.value
   }
   return { store: injected }
+}
+
+export const createDeferredStoreProxy = (
+  getStore: () => LiveStoreInstance | null,
+  ready: Ref<boolean>,
+  readyPromise: Promise<void>,
+  getError: () => unknown | null,
+): LiveStoreInstance => {
+  const proxy = new Proxy({}, {
+    get(_target, prop, _receiver) {
+      const throwIfNotReady = () => {
+        const err = getError()
+        if (err) {
+          throw err
+        }
+        if (!ready.value) {
+          throw readyPromise
+        }
+      }
+
+      const store = getStore()
+      if (!store) {
+        return (...args: unknown[]) => {
+          throwIfNotReady()
+          // After ready, retry the call
+          const s = getStore()
+          const fn = s[prop]
+          if (typeof fn === 'function') {
+            return fn.apply(s, args)
+          }
+          return fn
+        }
+      }
+
+      const value = store[prop]
+      if (typeof value === 'function') {
+        return (...args: unknown[]) => value.apply(store, args)
+      }
+      return value
+    },
+  }) as LiveStoreInstance
+
+  return markRaw(proxy)
 }

@@ -1,10 +1,10 @@
-import { defineComponent, provide, ref, markRaw, type PropType } from 'vue'
+import { defineComponent, provide, ref, markRaw, h, type PropType } from 'vue'
 import {
   type CreateStoreOptions,
   type LiveStoreSchema,
   createStorePromise,
 } from '@livestore/livestore'
-import { LiveStoreKey, withVueApi, StoreReadyStateKey, StoreInitErrorKey } from './store'
+import { LiveStoreKey, withVueApi, StoreReadyStateKey, StoreInitErrorKey, createDeferredStoreProxy, type LiveStoreInstance } from './store'
 
 export const LiveStoreProvider = defineComponent({
   name: 'LiveStoreProvider',
@@ -13,8 +13,12 @@ export const LiveStoreProvider = defineComponent({
       type: Object as PropType<CreateStoreOptions<LiveStoreSchema>>,
       required: true,
     },
+    suspend: {
+      type: Boolean as PropType<boolean>,
+      default: true,
+    },
   },
-  async setup(props, { slots }) {
+  setup(props, { slots }) {
     const initError = ref<unknown | null>(null)
     provide(StoreInitErrorKey, { error: initError })
 
@@ -24,17 +28,38 @@ export const LiveStoreProvider = defineComponent({
     const readyPromise = new Promise<void>((resolve, reject) => { resolveReady = resolve; rejectReady = reject })
     provide(StoreReadyStateKey, { ready, promise: readyPromise })
 
-    try {
-      const store = await createStorePromise(props.options)
-      const storeWithApi = markRaw(withVueApi(store))
-      provide(LiveStoreKey, storeWithApi)
-      ready.value = true
-      resolveReady()
-      return () => (slots.default ? slots.default({ store: storeWithApi }) : [])
-    } catch (e) {
-      initError.value = e
-      rejectReady(e)
-      throw e
+    let resolvedStore: LiveStoreInstance | null = null
+    const proxy = createDeferredStoreProxy(() => resolvedStore, ready, readyPromise, () => initError.value)
+    provide(LiveStoreKey, proxy)
+
+    createStorePromise(props.options)
+      .then((store) => {
+        const storeWithApi = markRaw(withVueApi(store))
+        resolvedStore = storeWithApi
+        ready.value = true
+        resolveReady()
+      })
+      .catch((e) => {
+        initError.value = e
+        rejectReady(e)
+      })
+
+    const Gate = defineComponent({
+      name: 'LiveStoreProviderGate',
+      async setup(_p, { slots: s }) {
+        if (!ready.value) {
+          await readyPromise
+        }
+        return () => s.default?.()
+      },
+    })
+
+    return () => {
+      if (!slots.default) return []
+      if (props.suspend) {
+        return h(Gate as unknown as object, {}, { default: () => slots.default!() })
+      }
+      return slots.default()
     }
   },
 })
