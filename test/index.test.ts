@@ -86,7 +86,7 @@ describe('LiveStore Integration', () => {
       setup() {
         return () => h(Suspense, {}, {
           default: () => h(LiveStoreProvider,
-            { options: storeOptions },
+            { options: storeOptions, suspend: true },
             { default: () => h(TestComponent) }
           ),
           fallback: () => h('div', {}, 'loading')

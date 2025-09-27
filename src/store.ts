@@ -73,7 +73,7 @@ export const createDeferredStoreProxy = (
       throwIfNotReady()
 
       const store = getStore()
-      const value = store?.[prop]
+      const value = (store as any)[prop] // eslint-disable-line @typescript-eslint/no-explicit-any
       if (typeof value === 'function') {
         return (...args: unknown[]) => value.apply(store, args)
       }
