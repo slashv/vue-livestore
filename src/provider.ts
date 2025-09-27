@@ -1,4 +1,4 @@
-import { defineComponent, provide, ref, toRaw, watch, shallowRef, onUnmounted, type PropType } from 'vue'
+import { defineComponent, provide, ref, toRaw, watch, shallowRef, onUnmounted, markRaw, type PropType } from 'vue'
 import {
   type CreateStoreOptions,
   type LiveStoreSchema,
@@ -48,71 +48,65 @@ export const LiveStoreProvider = defineComponent({
         rejectReady(e)
       })
 
-    // Inject a proxy immediately so that useStore() can be called while loading.
+    // Inject a minimal proxy immediately so that useStore() can be called while loading.
     provide(
       LiveStoreKey,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      new Proxy({} as any, {
-        get(_, key) {
-          // Before initialization, expose safe fields and provide non-throwing stubs for Vue API
-          if (!storeRef.value) {
-            // Surface init errors immediately
-            if (initError.value) throw initError.value
+      markRaw(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        new Proxy({} as any, {
+          get(_, key) {
+            if (!storeRef.value) {
+              if (initError.value) throw initError.value
 
-            // Always allow reading configured storeId early
-            if (key === 'storeId') {
-              return props.options.storeId
-            }
+              if (key === 'storeId') return props.options.storeId
 
-            // Provide a non-throwing useQuery stub that hydrates after ready
-            if (key === 'useQuery') {
-              return (queryDef: unknown) => {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const data = shallowRef([] as any)
-                let unsubscribe: void | (() => void)
-                readyPromise.then(() => {
-                  const readyStore = storeRef.value!
+              if (key === 'useQuery') {
+                return (queryDef: unknown) => {
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  data.value = readyStore.query(queryDef as any)
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  unsubscribe = readyStore.subscribe(queryDef as any, {
+                  const data = shallowRef([] as any)
+                  let unsubscribe: void | (() => void)
+                  readyPromise.then(() => {
+                    const readyStore = storeRef.value!
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    onUpdate: (result: any) => {
-                      data.value = result
-                    },
+                    data.value = readyStore.query(queryDef as any)
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    unsubscribe = readyStore.subscribe(queryDef as any, {
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      onUpdate: (result: any) => {
+                        data.value = result
+                      },
+                    })
                   })
-                })
-                onUnmounted(() => unsubscribe?.())
-                return data
+                  onUnmounted(() => unsubscribe?.())
+                  return data
+                }
               }
-            }
-            if (key === 'useClientDocument') {
-              return () => {
-                throw readyPromise
-              }
-            }
 
-            // Avoid throwing during render for unknown keys; return a callable that suspends when invoked.
-            if (typeof key === 'symbol') return undefined
-            if (
-              key === '__v_isReactive' ||
-              key === '__v_skip' ||
-              key === '__v_raw' ||
-              key === 'toString' ||
-              key === 'valueOf' ||
-              key === 'then'
-            ) {
-              return undefined
+              if (key === 'useClientDocument') {
+                return () => { throw readyPromise }
+              }
+
+              if (
+                typeof key === 'symbol' ||
+                key === 'then' ||
+                key === '__v_isReactive' ||
+                key === '__v_skip' ||
+                key === '__v_raw' ||
+                key === 'toString' ||
+                key === 'valueOf'
+              ) {
+                return undefined
+              }
+
+              // Return a callable that suspends only when invoked
+              return (..._args: unknown[]) => { throw readyPromise }
             }
-            return (..._args: unknown[]) => {
-              throw readyPromise
-            }
-          }
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore – dynamic access
-          return storeRef.value[key]
-        },
-      }),
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore – dynamic access
+            return storeRef.value[key]
+          },
+        }),
+      ),
     )
 
     // Add __debugLiveStore property to window / globalThis
