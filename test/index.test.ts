@@ -77,19 +77,16 @@ describe('LiveStore Integration', () => {
       }
     })
 
-    // Create wrapper component to provide store context
+    // Create wrapper component to provide store context with provider-managed Suspense via `loading` slot
     const WrapperComponent = defineComponent({
       components: {
         LiveStoreProvider,
         TestComponent
       },
       setup() {
-        return () => h(Suspense, {}, {
-          default: () => h(LiveStoreProvider,
-            { options: storeOptions, suspend: true },
-            { default: () => h(TestComponent) }
-          ),
-          fallback: () => h('div', {}, 'loading')
+        return () => h(LiveStoreProvider, { options: storeOptions }, {
+          default: () => h(TestComponent),
+          loading: () => h('div', {}, 'loading')
         })
       }
     })
