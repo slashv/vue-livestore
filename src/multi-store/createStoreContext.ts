@@ -11,7 +11,7 @@ import {
   type DefineComponent,
 } from 'vue'
 import { LiveStoreProvider } from '../provider'
-import { LiveStoreKey, StoreReadyStateKey, StoreInitErrorKey } from '../store'
+import { LiveStoreKey } from '../store'
 import type {
   CreateStoreContextConfig,
   CreateStoreContextReturn,
@@ -158,56 +158,29 @@ export function createStoreContext<
       }
 
       const store = registry.get(options.storeId)
-
       if (!store) {
-        // For Suspense support, throw a promise that resolves when store is available
-        throw new Promise<void>((resolve, reject) => {
-          const targetStoreId = options.storeId!
-          let attempts = 0
-          const maxAttempts = 500 // 5 seconds with 10ms intervals
-
-          const checkInterval = setInterval(() => {
-            attempts++
-            const foundStore = registry.get(targetStoreId)
-
-            if (foundStore) {
-              clearInterval(checkInterval)
-              resolve()
-            } else if (attempts >= maxAttempts) {
-              clearInterval(checkInterval)
-              reject(new Error(
-                `Store instance "${targetStoreId}" not found after timeout. ` +
-                `Make sure a ${config.name} Provider with storeId="${targetStoreId}" exists.`
-              ))
-            }
-          }, 10)
-        })
+        // Instance not registered yet; return the provider-level store so callers can at least read storeId
+        // The registrar will replace the context store before children render.
+        const fallback = inject(LiveStoreKey)
+        if (!fallback) {
+          throw new Error(
+            `useStore: must be used within a ${config.name} Provider. ` +
+            `Wrap your component tree with <${config.name}Provider> to provide the store context.`
+          )
+        }
+        return fallback as unknown as StoreWithVueAPI<TSchema>
       }
-
       return store
     }
 
-    // Default: use the store from this context's provider
+    // Default: do not suspend; provider proxy handles readiness
     const store = inject(StoreKey)
-
     if (!store) {
       throw new Error(
         `useStore: must be used within a ${config.name} Provider. ` +
         `Wrap your component tree with <${config.name}Provider> to provide the store context.`
       )
     }
-
-    // Suspend until underlying LiveStore is ready or throw init error
-    const readyState = inject(StoreReadyStateKey, null)
-    const initErr = inject(StoreInitErrorKey, null)
-
-    if (initErr?.error.value) {
-      throw initErr.error.value
-    }
-    if (readyState && !readyState.ready.value) {
-      throw readyState.promise
-    }
-
     return store as unknown as StoreWithVueAPI<TSchema>
   }
 
