@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { makeInMemoryAdapter } from '@livestore/adapter-web'
 import { State, Events, Schema, makeSchema, queryDb } from '@livestore/livestore'
 import { mount, flushPromises } from '@vue/test-utils'
-import { defineComponent, h, nextTick, Suspense } from 'vue'
+import { defineComponent, h, nextTick } from 'vue'
 
 const scheduler = typeof setImmediate === 'function' ? setImmediate : setTimeout
 function flushPromisesCustom() {

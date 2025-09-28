@@ -107,6 +107,12 @@ export function createStoreContext<
           // Also re-provide LiveStoreKey locally so generic hooks can work inside this subtree
           provide(LiveStoreKey, injectedStore as unknown as LiveStoreInstance)
 
+          // Re-provide StoreReadyStateKey so useStore can access it for Suspense support
+          const readyState = inject(StoreReadyStateKey)
+          if (readyState) {
+            provide(StoreReadyStateKey, readyState)
+          }
+
           // Register the provided store for multi-instance lookup
           localProps.registry.set(localProps.storeId, injectedStore as unknown as StoreWithVueAPI<TSchema>)
           onUnmounted(() => {
@@ -194,7 +200,13 @@ export function createStoreContext<
       return store
     }
 
-    // Default: do not suspend; provider proxy handles readiness
+    // Default: check for readiness to support external Suspense
+    const readyState = inject(StoreReadyStateKey, null)
+    if (readyState && !readyState.ready.value) {
+      // Throw the promise to trigger Suspense
+      throw readyState.promise
+    }
+
     const store = inject(StoreKey)
     if (!store) {
       throw new Error(
