@@ -12,10 +12,10 @@ import { IssueProvider } from '../livestore/issues/store'
 import { queryDb } from '@livestore/livestore'
 import Issues from './issues.vue'
 
-const projectStore = useProjectStore()
+const projectStore = await useProjectStore()
 const projects = projectStore.useQuery(queryDb(projectTables.projects.select()))
 
-const workspaceStore = useWorkspaceStore()
+const workspaceStore = await useWorkspaceStore()
 const workspace = workspaceStore.useQuery(queryDb(workspaceTables.workspaces.first()))
 
 const createProject = () => {

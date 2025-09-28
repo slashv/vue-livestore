@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { inject } from 'vue'
 import { queryDb } from '@livestore/livestore'
 import { events, tables } from '../livestore/todos/schema'
 import { useTodoStore } from '../livestore/todos/store'
 
-const store = useTodoStore()
+const store = await useTodoStore()
 
 // Query & subscription
 const uiState$ = queryDb(tables.uiState.get(), { label: 'uiState' })

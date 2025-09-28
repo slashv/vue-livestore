@@ -10,7 +10,7 @@ const adapter = makePersistedAdapter({
   sharedWorker: LiveStoreSharedWorker,
 })
 
-export const [TodoProvider, useTodoStore] = createStoreContext({
+export const [TodoProvider, useTodoStore, useTodoStoreSync] = createStoreContext({
   name: 'todo',
   schema: schema,
   adapter: adapter,

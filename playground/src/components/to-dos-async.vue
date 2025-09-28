@@ -1,17 +1,10 @@
 <script setup lang="ts">
-import { inject } from 'vue'
 import { queryDb } from '@livestore/livestore'
 import { events, tables } from '../livestore/todos/schema'
 import { useTodoStore } from '../livestore/todos/store'
-import { StoreReadyStateKey } from 'vue-livestore'
 
-// Make the component async by awaiting store readiness
-const readyState = inject(StoreReadyStateKey, null)
-if (readyState && !readyState.ready.value) {
-  await readyState.promise
-}
-
-const store = useTodoStore()
+// Simply await the store - it will resolve when ready
+const store = await useTodoStore()
 
 // Query & subscription
 const uiState$ = queryDb(tables.uiState.get(), { label: 'uiState' })

@@ -15,7 +15,7 @@ const createWorkspace = () => {
   }))
 }
 
-const workspaceStore = useWorkspaceStore()
+const workspaceStore = await useWorkspaceStore()
 const workspaces = workspaceStore.useQuery(queryDb(workspaceTables.workspaces.select()))
 </script>
 
