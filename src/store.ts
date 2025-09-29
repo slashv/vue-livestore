@@ -73,13 +73,39 @@ export const createDeferredStoreProxy = (
       throwIfNotReady()
 
       const store = getStore()
-      const value = (store as any)[prop] // eslint-disable-line @typescript-eslint/no-explicit-any
+      if (!store) {
+        throw new Error('Store is not resolved')
+      }
+      const key = prop as keyof LiveStoreInstance
+      const value = store[key]
       if (typeof value === 'function') {
-        return (...args: unknown[]) => value.apply(store, args)
+        return (...args: unknown[]) => (value as (...args: unknown[]) => unknown).apply(store, args)
       }
       return value
     },
   }) as LiveStoreInstance
+
+  // Ensure Vue-specific API exists on the proxy itself so callers can use
+  // store.useQuery(...) and store.useClientDocument(...) in both sync and suspense flows
+  // without depending on the underlying store object having been resolved yet.
+  type UseQueryParams = Parameters<typeof useQuery>
+  ;(proxy as LiveStoreInstance).useQuery = ((queryDef: UseQueryParams[0], _options?: UseQueryParams[1]) =>
+    useQuery(queryDef, {
+      // Route calls through the proxy; access to .query/.subscribe will suspend until ready
+      store: proxy as unknown as Store,
+    })) as typeof useQuery
+  type UseClientDocumentParams = Parameters<typeof useClientDocument>
+  ;(proxy as LiveStoreInstance).useClientDocument = ((
+    table: UseClientDocumentParams[0],
+    id?: UseClientDocumentParams[1],
+    options?: UseClientDocumentParams[2],
+  ) =>
+    useClientDocument(
+      table,
+      id as UseClientDocumentParams[1],
+      options as UseClientDocumentParams[2],
+      { store: proxy as unknown as Store },
+    )) as typeof useClientDocument
 
   return markRaw(proxy)
 }

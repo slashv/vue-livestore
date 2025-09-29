@@ -78,6 +78,6 @@ export type CreateStoreContextReturn<
   TConfig extends CreateStoreContextConfig<TSchema>,
 > = [
     DefineComponent<ComputeProviderProps<TConfig>>,
-    (options?: UseStoreOptions) => Promise<StoreWithVueAPI<TSchema>>,
     (options?: UseStoreOptions) => StoreWithVueAPI<TSchema>,
+    (options?: UseStoreOptions) => Promise<StoreWithVueAPI<TSchema>>,
   ]
