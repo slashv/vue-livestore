@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { makeInMemoryAdapter } from '@livestore/adapter-web'
 import { State, Events, Schema, makeSchema, queryDb } from '@livestore/livestore'
 import { mount, flushPromises } from '@vue/test-utils'
-import { defineComponent, h, nextTick } from 'vue'
+import { defineComponent, h, nextTick, Suspense } from 'vue'
 
 const scheduler = typeof setImmediate === 'function' ? setImmediate : setTimeout
 function flushPromisesCustom() {
@@ -114,8 +114,8 @@ describe('Multi-Store: Minimal Configuration', () => {
     })
 
     const TestComponent = defineComponent({
-      setup() {
-        const store = useMinimalStore()
+      async setup() {
+        const store = await useMinimalStore()
         return { store }
       },
       render() {
@@ -187,8 +187,8 @@ describe('Multi-Store: Full Configuration', () => {
     })
 
     const TestComponent = defineComponent({
-      setup() {
-        const store = useFullStore()
+      async setup() {
+        const store = await useFullStore()
         return { store }
       },
       render() {
@@ -228,8 +228,8 @@ describe('Multi-Store: Full Configuration', () => {
     })
 
     const TestComponent = defineComponent({
-      setup() {
-        const store = useFullStore()
+      async setup() {
+        const store = await useFullStore()
         return { store }
       },
       render() {
@@ -276,9 +276,9 @@ describe('Multi-Store: Multiple Instances', () => {
 
     const InstanceComponent = defineComponent({
       props: ['instanceId'],
-      setup(props) {
+      async setup(props) {
         // Access specific instance by storeId
-        const store = useMultiStore({ storeId: props.instanceId })
+        const store = await useMultiStore({ storeId: props.instanceId })
         return { store }
       },
       render() {
@@ -337,9 +337,15 @@ describe('Multi-Store: Nested Stores', () => {
     })
 
     const ProjectComponent = defineComponent({
-      setup() {
-        const workspaceStore = useWorkspaceStore()
-        const projectStore = useProjectStore()
+      async setup() {
+        // Call both useStore functions BEFORE any await to capture inject() context
+        const workspaceStorePromise = useWorkspaceStore()
+        const projectStorePromise = useProjectStore()
+
+        // Now await them
+        const workspaceStore = await workspaceStorePromise
+        const projectStore = await projectStorePromise
+
         return { workspaceStore, projectStore }
       },
       render() {
@@ -351,8 +357,8 @@ describe('Multi-Store: Nested Stores', () => {
     })
 
     const WorkspaceComponent = defineComponent({
-      setup() {
-        const workspaceStore = useWorkspaceStore()
+      async setup() {
+        const workspaceStore = await useWorkspaceStore()
         return { workspaceStore }
       },
       render() {
@@ -425,9 +431,9 @@ describe('Multi-Store: Loading', () => {
     const loadEndTimes = new Map<string, number>()
 
     const TodoSection = defineComponent({
-      setup() {
+      async setup() {
         loadStartTimes.set('todos', Date.now())
-        const store = useTodoStore()
+        const store = await useTodoStore()
         loadEndTimes.set('todos', Date.now())
         return { store }
       },
@@ -437,9 +443,9 @@ describe('Multi-Store: Loading', () => {
     })
 
     const WorkspaceSection = defineComponent({
-      setup() {
+      async setup() {
         loadStartTimes.set('workspace', Date.now())
-        const store = useWorkspaceStore()
+        const store = await useWorkspaceStore()
         loadEndTimes.set('workspace', Date.now())
         return { store }
       },
@@ -449,9 +455,9 @@ describe('Multi-Store: Loading', () => {
     })
 
     const ProjectSection = defineComponent({
-      setup() {
+      async setup() {
         loadStartTimes.set('project', Date.now())
-        const store = useProjectStore()
+        const store = await useProjectStore()
         loadEndTimes.set('project', Date.now())
         return { store }
       },
@@ -512,8 +518,8 @@ describe('Multi-Store: Store Methods', () => {
     const todosQuery = queryDb(() => tables.todos.select())
 
     const TestComponent = defineComponent({
-      setup() {
-        const store = useTodoStore()
+      async setup() {
+        const store = await useTodoStore()
         // Vue-specific methods should be available
         const todos = store.useQuery(todosQuery)
 
@@ -561,8 +567,8 @@ describe('Multi-Store: Store Methods', () => {
     const todosQuery = queryDb(() => tables.todos.select())
 
     const TestComponent = defineComponent({
-      setup() {
-        const store = useTodoStore()
+      async setup() {
+        const store = await useTodoStore()
         const todos = store.useQuery(todosQuery)
 
         const addTodo = () => {
@@ -608,5 +614,60 @@ describe('Multi-Store: Store Methods', () => {
 
     // Should update reactively
     expect(wrapper.find('.count').text()).toContain('Count: 1')
+  })
+})
+
+describe('Multi-Store: Single Store Suspense', () => {
+  it('renders fallback until store is ready and then resolves', async () => {
+    const { schema: todoSchema } = createTodoSchema()
+
+    const [TodoProvider, useTodoStore] = createStoreContext({
+      name: 'todoSuspense',
+      schema: todoSchema,
+      adapter: makeInMemoryAdapter(),
+      storeId: 'todo-suspense',
+    })
+
+    const ListComponent = defineComponent({
+      name: 'SuspenseList',
+      async setup() {
+        const store = await useTodoStore()
+        return { store }
+      },
+      render() {
+        return h('div', { class: 'resolved' }, `Resolved: ${this.store.storeId}`)
+      },
+    })
+
+    const WrapperComponent = defineComponent({
+      name: 'SuspenseWrapper',
+      setup() {
+        return () =>
+          h(
+            TodoProvider,
+            {},
+            {
+              default: () =>
+                h(
+                  Suspense,
+                  {},
+                  {
+                    default: () => h(ListComponent),
+                    fallback: () => h('div', { class: 'fallback' }, 'Loading store...'),
+                  },
+                ),
+              loading: () => h('div', {}, 'Provider loading...'),
+            },
+          )
+      },
+    })
+
+    const wrapper = mount(WrapperComponent)
+
+    await flushPromisesCustom()
+    await nextTick()
+
+    expect(wrapper.find('.fallback').exists()).toBe(false)
+    expect(wrapper.find('.resolved').text()).toContain('Resolved: todo-suspense')
   })
 })

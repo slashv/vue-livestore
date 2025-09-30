@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { TodoProvider } from '../livestore/todos/store'
-import ToDosAsync from '../components/to-dos-async.vue'
+import ToDoAsync from '../components/to-dos-async.vue'
 </script>
 
 <template>
   <TodoProvider storeId="todo-store">
     <Suspense>
-      <ToDosAsync />
+      <ToDoAsync />
       <template #fallback>Loading store...</template>
     </Suspense>
   </TodoProvider>

@@ -34,16 +34,16 @@ export const useStore = (options?: { store: Store }) => {
   if (options?.store) {
     return { store: withVueApi(options.store) }
   }
+  const injected = inject(LiveStoreKey)
+  if (!injected) {
+    throw new Error('LiveStore instance not provided. Make sure to install the provider and pass a store.')
+  }
+
   const readyState = inject(StoreReadyStateKey, null)
   const initErr = inject(StoreInitErrorKey, null)
 
   if (readyState && !readyState.ready.value) {
     throw readyState.promise
-  }
-
-  const injected = inject(LiveStoreKey)
-  if (!injected) {
-    throw new Error('LiveStore instance not provided. Make sure to install the provider and pass a store.')
   }
 
   if (initErr?.error.value) {

@@ -172,107 +172,62 @@ export function createStoreContext<
     },
   })
 
-  // Synchronous version - for use with provider's loading slot or when store is guaranteed to be ready
-  const useStoreSync = (options?: UseStoreOptions): StoreWithVueAPI<TSchema> => {
-    // Multi-instance access via storeId
-    if (options?.storeId) {
-      const registry = inject(RegistryKey)
+  const useStore = (options?: UseStoreOptions): Promise<StoreWithVueAPI<TSchema>> => {
+    // ALL inject() calls must happen synchronously, before any await
+    const readyState = inject(StoreReadyStateKey, null)
+    const registry = inject(RegistryKey, null)
+    const injectedStoreKey = inject(StoreKey, null)
+    const injectedLiveStoreKey = inject(LiveStoreKey, null)
 
-      if (!registry) {
+    // Now return an async function that can be awaited
+    return (async () => {
+      // Multi-instance access via storeId
+      if (options?.storeId) {
+        if (!registry) {
+          throw new Error(
+            `Multi-instance access requires the store to be created with createStoreContext. ` +
+            `Cannot access store with storeId="${options.storeId}".`
+          )
+        }
+
+        const store = registry.get(options.storeId)
+        if (!store) {
+          if (!injectedLiveStoreKey) {
+            throw new Error(
+              `useStore: must be used within a ${config.name} Provider. ` +
+              `Wrap your component tree with <${config.name}Provider> to provide the store context.`
+            )
+          }
+          // Await readyState for fallback as well
+          if (readyState && !readyState.ready.value) {
+            await readyState.promise
+          }
+          return injectedLiveStoreKey as unknown as StoreWithVueAPI<TSchema>
+        }
+
+        // Await the ready state instead of throwing
+        if (readyState && !readyState.ready.value) {
+          await readyState.promise
+        }
+
+        return store
+      }
+
+      if (!injectedStoreKey) {
         throw new Error(
-          `Multi-instance access requires the store to be created with createStoreContext. ` +
-          `Cannot access store with storeId="${options.storeId}".`
+          `useStore: must be used within a ${config.name} Provider. ` +
+          `Wrap your component tree with <${config.name}Provider> to provide the store context.`
         )
       }
 
-      const store = registry.get(options.storeId)
-      if (!store) {
-        // Instance not registered yet; return the provider-level store so callers can at least read storeId
-        // The registrar will replace the context store before children render.
-        const fallback = inject(LiveStoreKey)
-        if (!fallback) {
-          throw new Error(
-            `useStoreSync: must be used within a ${config.name} Provider. ` +
-            `Wrap your component tree with <${config.name}Provider> to provide the store context.`
-          )
-        }
-        return fallback as unknown as StoreWithVueAPI<TSchema>
-      }
-      return store
-    }
-
-    // Get the store - for sync version, we expect it to be ready or within a loading slot
-    const store = inject(StoreKey)
-    if (!store) {
-      throw new Error(
-        `useStoreSync: must be used within a ${config.name} Provider. ` +
-        `Wrap your component tree with <${config.name}Provider> to provide the store context.`
-      )
-    }
-
-    return store as unknown as StoreWithVueAPI<TSchema>
-  }
-
-  // Async version - waits for store to be ready before returning
-  const useStore = (options?: UseStoreOptions): Promise<StoreWithVueAPI<TSchema>> => {
-    // All inject calls must happen synchronously in setup context
-    const readyState = inject(StoreReadyStateKey, null)
-
-    // For multi-instance access, we need to handle it specially
-    if (options?.storeId) {
-      const registry = inject(RegistryKey)
-      const fallback = inject(LiveStoreKey)
-
-      return new Promise((resolve, reject) => {
-        // Wait for ready if needed
-        const waitPromise = readyState && !readyState.ready.value ? readyState.promise : Promise.resolve()
-
-        waitPromise.then(() => {
-          if (!registry) {
-            reject(new Error(
-              `Multi-instance access requires the store to be created with createStoreContext. ` +
-              `Cannot access store with storeId="${options.storeId}".`
-            ))
-            return
-          }
-
-          const store = registry.get(options.storeId!)
-          if (store) {
-            resolve(store)
-          } else if (fallback) {
-            resolve(fallback as unknown as StoreWithVueAPI<TSchema>)
-          } else {
-            reject(new Error(
-              `useStore: must be used within a ${config.name} Provider. ` +
-              `Wrap your component tree with <${config.name}Provider> to provide the store context.`
-            ))
-          }
-        })
-      })
-    }
-
-    // Single instance access
-    const store = inject(StoreKey)
-
-    return new Promise((resolve, reject) => {
-      if (!store) {
-        reject(new Error(
-          `useStore: must be used within a ${config.name} Provider. ` +
-          `Wrap your component tree with <${config.name}Provider> to provide the store context.`
-        ))
-        return
-      }
-
-      // If store isn't ready, wait for it
+      // Await the ready state instead of throwing
       if (readyState && !readyState.ready.value) {
-        readyState.promise.then(() => {
-          resolve(store as unknown as StoreWithVueAPI<TSchema>)
-        })
-      } else {
-        resolve(store as unknown as StoreWithVueAPI<TSchema>)
+        await readyState.promise
       }
-    })
+
+      return injectedStoreKey as unknown as StoreWithVueAPI<TSchema>
+    })()
   }
 
-  return [Provider as unknown as DefineComponent<ComputeProviderProps<TConfig>>, useStoreSync, useStore]
+  return [Provider as unknown as DefineComponent<ComputeProviderProps<TConfig>>, useStore]
 }

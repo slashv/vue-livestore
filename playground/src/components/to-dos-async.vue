@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { queryDb } from '@livestore/livestore'
 import { events, tables } from '../livestore/todos/schema'
-import { useTodoStore } from '../livestore/todos/store'
 
-// Simply await the store - it will resolve when ready
+import { useTodoStore } from '../livestore/todos/store'
 const store = await useTodoStore()
 
 // Query & subscription
