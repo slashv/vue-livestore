@@ -4,19 +4,16 @@ import ToDoAsync from '../components/to-dos-async.vue'
 </script>
 
 <template>
-  <div>
-    <Suspense>
+  <Suspense>
+    <div>
       <TodoProvider storeId="store-1">
         <ToDoAsync />
       </TodoProvider>
-      <template #fallback>Loading store-1...</template>
-    </Suspense>
 
-    <Suspense>
       <TodoProvider storeId="store-2">
         <ToDoAsync />
       </TodoProvider>
-      <template #fallback>Loading store-2...</template>
-    </Suspense>
-  </div>
+    </div>
+    <template #fallback>Loading stores with suspense...</template>
+  </Suspense>
 </template>
