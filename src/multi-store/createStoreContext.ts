@@ -10,9 +10,10 @@ import {
   type PropType,
   type SetupContext,
   type DefineComponent,
+  type Ref,
 } from 'vue'
 import { LiveStoreProvider } from '../provider'
-import { LiveStoreKey, StoreReadyStateKey, type LiveStoreInstance } from '../store'
+import { LiveStoreKey, type LiveStoreInstance } from '../store'
 import type {
   CreateStoreContextConfig,
   CreateStoreContextReturn,
@@ -20,6 +21,12 @@ import type {
   StoreWithVueAPI,
   UseStoreOptions,
 } from './types'
+
+// Local ready state type for multi-store async access
+type StoreReadyState = {
+  ready: Ref<boolean>
+  promise: Promise<void>
+}
 
 // Define the props interface for the Provider component
 interface ProviderProps {
@@ -37,6 +44,7 @@ export function createStoreContext<
   // Create unique injection keys for this store context
   const RegistryKey: InjectionKey<Map<string, StoreWithVueAPI<TSchema>>> = Symbol(`${config.name}Registry`)
   const StoreKey: InjectionKey<StoreWithVueAPI<TSchema>> = Symbol(`${config.name}Store`)
+  const StoreReadyStateKey: InjectionKey<StoreReadyState> = Symbol(`${config.name}ReadyState`)
 
   const Provider = defineComponent({
     name: `${config.name}StoreProvider`,
@@ -90,6 +98,7 @@ export function createStoreContext<
           `${config.name} Provider: storeId is required. Provide it either in createStoreContext or as a prop to the Provider.`
         )
       }
+
       // Delegate to LiveStoreProvider and register the created store instance (proxy provided by provider)
       const StoreRegistrar = defineComponent({
         name: `${config.name}StoreRegistrar`,
@@ -102,16 +111,44 @@ export function createStoreContext<
           if (!injectedStore) {
             throw new Error(`${config.name} Provider: LiveStore is not available in StoreRegistrar`)
           }
+
+          // Create ready state for async useStore support
+          // The store proxy will throw a promise when accessed before ready, which we can catch
+          const ready = { value: false } as Ref<boolean>
+          let resolveReady!: () => void
+          const readyPromise = new Promise<void>((resolve) => {
+            resolveReady = resolve
+          })
+
+          // Try to access the store synchronously to see if it's ready
+          try {
+            // Access a property to trigger the proxy
+            void injectedStore.storeId
+            ready.value = true
+            resolveReady()
+          } catch (e) {
+            // If it throws a promise, the store is not ready yet
+            // Wait for it and then resolve our ready state
+            if (e instanceof Promise) {
+              e.then(() => {
+                ready.value = true
+                resolveReady()
+              }).catch(() => {
+                // If store initialization failed, keep ready false
+                resolveReady()
+              })
+            } else {
+              throw e
+            }
+          }
+
+          // Provide ready state for async useStore (must be synchronous)
+          provide(StoreReadyStateKey, { ready, promise: readyPromise })
+
           // Provide the store under this context's key for isolation
           provide(StoreKey, injectedStore as unknown as StoreWithVueAPI<TSchema>)
           // Also re-provide LiveStoreKey locally so generic hooks can work inside this subtree
           provide(LiveStoreKey, injectedStore as unknown as LiveStoreInstance)
-
-          // Re-provide StoreReadyStateKey so useStore can access it for Suspense support
-          const readyState = inject(StoreReadyStateKey)
-          if (readyState) {
-            provide(StoreReadyStateKey, readyState)
-          }
 
           // Register the provided store for multi-instance lookup
           localProps.registry.set(localProps.storeId, injectedStore as unknown as StoreWithVueAPI<TSchema>)
