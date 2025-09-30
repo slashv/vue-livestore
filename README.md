@@ -246,7 +246,6 @@ The [playground](https://github.com/slashv/vue-livestore/tree/main/playground) i
 - **[MultipleStoresPage.vue](playground/src/pages/MultipleStoresPage.vue)** - Two independent todo stores side-by-side
 - **[NestedStoresPage.vue](playground/src/pages/NestedStoresPage.vue)** - Hierarchical workspace → projects → issues store structure
 - **[MultipleStoresSuspensePage.vue](playground/src/pages/MultipleStoresSuspensePage.vue)** - Multiple stores with Suspense loading states
-- **[to-dos-async.vue](playground/src/components/to-dos-async.vue)** - Component using async `useTodoStore()` with `await`
 
 ## TODO
 - [x] Multiple stores support
