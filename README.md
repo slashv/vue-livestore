@@ -85,11 +85,170 @@ const { newTodoText, filters } = useClientDocument(tables.uiState)
 </template>
 ```
 
+## Multiple Store Instances
+
+Vue LiveStore supports running multiple store instances using `createStoreContext`. This can be useful when isolation between stores is necessary to provide more fine grained permissions say between workspaces and projects.
+
+When working with multiple stores it's recommended to create the store using `createStoreContext` in a separate file then import the provider or useStore composable in different parts of the app. See examples in playground for reference.
+
+In order to work with `<Suspense>` as a common boundary for multiple stores **the `useStore` composable returned by `createStoreContext` returns a promise**. This is different to the React implenentation because of the way Suspense works differently in both frameworks. [See this document](docs/multi-store/react-vs-vue-suspense.md) for more details.
+
+### Creating a Store Context
+
+Create a store context file (e.g., `livestore/todos/store.ts`) that exports both a Provider component and a composable:
+
+```ts
+import { makePersistedAdapter } from '@livestore/adapter-web'
+import LiveStoreWorker from './livestore.worker?worker'
+import { createStoreContext } from 'vue-livestore'
+import { schema } from './schema'
+
+const adapter = makePersistedAdapter({
+  storage: { type: 'opfs' },
+  worker: LiveStoreWorker,
+})
+
+// Creates a typed Provider and useStore hook for this specific store type
+export const [TodoProvider, useTodoStore] = createStoreContext({
+  name: 'todo',
+  schema: schema,
+  adapter: adapter,
+})
+```
+
+### Using Multiple Store Instances
+
+**⚠️ Important**: The `useStore` returned by `createStoreContext` returns a **Promise** to support Vue's Suspense. You must use `await` or handle it as a promise.
+
+**Loading States**: When using multiple stores, you must handle loading states using **either**:
+1. The `#loading` slot on each `Provider` component, or
+2. A parent `<Suspense>` boundary wrapping the providers
+
+#### Option 1: Using Loading Slots
+
+```vue
+<script setup lang="ts">
+import { TodoProvider } from '../livestore/todos/store'
+</script>
+
+<template>
+  <div>
+    <TodoProvider storeId="store-1">
+      <TodoList />
+      <template #loading>Loading store-1...</template>
+    </TodoProvider>
+
+    <TodoProvider storeId="store-2">
+      <TodoList />
+      <template #loading>Loading store-2...</template>
+    </TodoProvider>
+  </div>
+</template>
+```
+
+The `TodoList` component uses `await` to access the store:
+
+```vue
+<script setup lang="ts">
+import { queryDb } from '@livestore/livestore'
+import { events, tables } from '../livestore/todos/schema'
+import { useTodoStore } from '../livestore/todos/store'
+
+const store = await useTodoStore()
+
+const visibleTodos$ = queryDb(
+  () => tables.todos.where({ deletedAt: null })
+)
+const todos = store.useQuery(visibleTodos$)
+
+const createTodo = (text: string) => {
+  store.commit(events.todoCreated({ id: crypto.randomUUID(), text }))
+}
+</script>
+
+<template>
+  <div v-for="todo in todos" :key="todo.id">
+    {{ todo.text }}
+  </div>
+</template>
+```
+
+#### Option 2: Using Suspense
+
+```vue
+<script setup lang="ts">
+import { TodoProvider } from '../livestore/todos/store'
+</script>
+
+<template>
+  <Suspense>
+    <div>
+      <TodoProvider storeId="store-1">
+        <TodoList />
+      </TodoProvider>
+
+      <TodoProvider storeId="store-2">
+        <TodoList />
+      </TodoProvider>
+    </div>
+    <template #fallback>Loading stores with suspense...</template>
+  </Suspense>
+</template>
+```
+
+### Nested Stores
+
+You can nest providers to create hierarchical store structures. Each nested provider creates its own store instance:
+
+```vue
+<!-- ParentPage.vue -->
+<script setup lang="ts">
+import { WorkspaceProvider } from '../livestore/workspaces/store'
+import Workspace from './Workspace.vue'
+</script>
+
+<template>
+  <WorkspaceProvider storeId="workspace-1">
+    <Workspace />
+    <template #loading>Loading workspace...</template>
+  </WorkspaceProvider>
+</template>
+```
+
+```vue
+<!-- Workspace.vue -->
+<script setup lang="ts">
+import { queryDb } from '@livestore/livestore'
+import { useWorkspaceStore, tables as workspaceTables } from '../livestore/workspaces/store'
+import { ProjectProvider } from '../livestore/projects/store'
+
+const workspaceStore = await useWorkspaceStore()
+const workspaces = workspaceStore.useQuery(queryDb(workspaceTables.workspaces.select()))
+</script>
+
+<template>
+  <!-- Create a separate project store for each workspace -->
+  <ProjectProvider
+    v-for="workspace in workspaces"
+    :key="workspace.id"
+    :storeId="`project-${workspace.id}`"
+  >
+    <ProjectList />
+    <template #loading>Loading project...</template>
+  </ProjectProvider>
+</template>
+```
+
+### Playground Examples
+
+The [playground](https://github.com/slashv/vue-livestore/tree/main/playground) includes several examples demonstrating multi-store patterns:
+
+- **[MultipleStoresPage.vue](playground/src/pages/MultipleStoresPage.vue)** - Two independent todo stores side-by-side
+- **[NestedStoresPage.vue](playground/src/pages/NestedStoresPage.vue)** - Hierarchical workspace → projects → issues store structure
+- **[MultipleStoresSuspensePage.vue](playground/src/pages/MultipleStoresSuspensePage.vue)** - Multiple stores with Suspense loading states
+- **[to-dos-async.vue](playground/src/components/to-dos-async.vue)** - Component using async `useTodoStore()` with `await`
+
 ## TODO
-- [ ] Multiple stores support
+- [x] Multiple stores support
 - [x] useClientDocument composable
 - [ ] Nuxt integration (might be separate repo or just example implementation)
-
-## Comments
-**Why not a Vue plugin instead of provider pattern?**
-A Vue plugin would probably be more idiomatic to the Vue ecosystem but a provider has the benefit of easily designating a loading slot. It also matches better to the React implementation for LiveStore which makes generalising examples easier. It's possible as this package matures we might switch to a plugin structure if it makes sense. We would also see what the best option would be when integrating into Nuxt.
