@@ -1,26 +1,34 @@
 import { shallowRef, onUnmounted, type Ref } from 'vue'
 
-import type { LiveQueryDef, Store } from '@livestore/livestore'
-import type { LiveQueries } from '@livestore/livestore/internal'
-
+import { type Queryable, type Store } from '@livestore/livestore'
 import { useStore } from './store'
 
-export const useQuery = <TQuery extends LiveQueryDef.Any>(
-  queryDef: TQuery,
-  options?: { store: Store }
-): Readonly<Ref<LiveQueries.GetResult<TQuery>>> => {
+const subscriptionLabel = <TResult>(queryable: Queryable<TResult>): string | undefined => {
+  const maybeLabel = (queryable as { label?: unknown }).label
+  return typeof maybeLabel === 'string' ? maybeLabel : undefined
+}
+
+export const useQuery = <TResult, TQueryable extends Queryable<TResult>>(
+  queryable: TQueryable,
+  options?: { store?: Store }
+): Readonly<Ref<TResult>> => {
   const { store } = useStore(options)
 
-  type Result = LiveQueries.GetResult<TQuery>
+  const data = shallowRef<TResult>(store.query(queryable))
 
-  const data = shallowRef(store?.query(queryDef as any) as Result) // eslint-disable-line @typescript-eslint/no-explicit-any
-
-  const unsubscribe = store?.subscribe(queryDef as any, { // eslint-disable-line @typescript-eslint/no-explicit-any
-    onUpdate: (result: Result) => {
+  const label = subscriptionLabel(queryable)
+  const unsubscribeResult = store.subscribe(
+    queryable,
+    (result: TResult) => {
       data.value = result
-    }
+    },
+    label ? { label } : undefined
+  )
+  const unsubscribe = typeof unsubscribeResult === 'function' ? unsubscribeResult : () => { }
+
+  onUnmounted(() => {
+    unsubscribe()
   })
-  onUnmounted(() => unsubscribe?.())
 
   return data
 }

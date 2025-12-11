@@ -1,7 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { onUnmounted, shallowRef, computed, type WritableComputedRef } from 'vue'
 
-import { queryDb, SessionIdSymbol, State, type RowQuery, type LiveQueryDef, type Store } from '@livestore/livestore'
+import {
+  queryDb,
+  SessionIdSymbol,
+  State,
+  type RowQuery,
+  type LiveQueryDef,
+  type Store
+} from '@livestore/livestore'
 
 import { useStore } from './store'
 
@@ -14,7 +21,7 @@ export type ClientDocumentTable<Value extends Record<string, any>> =
   >
 
 type UseClientDocumentResult<Value extends Record<string, any>> = {
-  id: string | SessionIdSymbol
+  id: string
   query$: LiveQueryDef<Value>
 } & {
   [K in keyof Value]: WritableComputedRef<Value[K]>
@@ -24,7 +31,7 @@ export function useClientDocument<Value extends Record<string, any>>(
   table: ClientDocumentTable<Value>,
   id?: string | SessionIdSymbol,
   options?: RowQuery.GetOrCreateOptions<ClientDocumentTable<Value>>,
-  storeArg?: { store: Store }
+  storeArg?: { store?: Store }
 ): UseClientDocumentResult<Value> {
   /* Used for clientDocuments only (UI state)
    *
@@ -54,22 +61,39 @@ export function useClientDocument<Value extends Record<string, any>>(
     throw new Error('Store not found. Make sure you are using LiveStoreProvider.')
   }
 
-  const documentId = id ?? SessionIdSymbol
-  if (!documentId) {
+  const resolvedId =
+    typeof id === 'string' || id === SessionIdSymbol
+      ? id
+      : table[State.SQLite.ClientDocumentTableDefSymbol].options.default.id
+
+  if (!resolvedId) {
     throw new Error('Client document requires an ID')
   }
 
-  const query$ = queryDb(table.get(documentId, options))
+  const defaultValues = options?.default
+  const idStr = resolvedId === SessionIdSymbol ? store.sessionId : resolvedId
+  const tableName = (table as unknown as State.SQLite.TableDef<any, any>).sqliteDef.name
+
+  const query$ = queryDb(table.get(resolvedId, options), {
+    deps: [
+      idStr,
+      tableName,
+      defaultValues ? JSON.stringify(defaultValues) : ''
+    ]
+  })
   const state = shallowRef<Value>(store.query(query$))
 
-  const unsubscribe = store.subscribe(query$, {
-    onUpdate: (result: Value) => {
+  const unsubscribeResult = store.subscribe(
+    query$,
+    (result: Value) => {
       state.value = result
-    }
-  })
+    },
+    { label: query$.label }
+  )
+  const unsubscribe = typeof unsubscribeResult === 'function' ? unsubscribeResult : () => { }
 
   const setState = (value: Value) => {
-    store.commit(table.set(value, documentId))
+    store.commit(table.set(removeUndefinedValues(value), resolvedId))
   }
 
   type V = Value
@@ -87,7 +111,17 @@ export function useClientDocument<Value extends Record<string, any>>(
 
   return {
     ...computedFields,
-    id: documentId,
+    id: idStr,
     query$
   }
+}
+
+const removeUndefinedValues = <T extends Record<string, unknown>>(value: T): T => {
+  if (typeof value !== 'object' || value === null) {
+    return value
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).filter(([, v]) => v !== undefined)
+  ) as T
 }

@@ -12,14 +12,27 @@ export type LiveStoreInstance = Store & VueApi
 
 export const LiveStoreKey: InjectionKey<LiveStoreInstance> = Symbol('LiveStore')
 
-export const withVueApi = (store: Store): LiveStoreInstance => {
-  const _store = store as LiveStoreInstance
-  _store.useQuery = (queryDef) => useQuery(queryDef, { store })
-  _store.useClientDocument = (table, id, options) => useClientDocument(table, id, options, { store })
-  return _store
+const VueApiMarker: unique symbol = Symbol('LiveStoreVueApiApplied')
+
+type VueApiTaggedStore = LiveStoreInstance & {
+  [VueApiMarker]?: boolean
 }
 
-export const useStore = (options?: { store: Store }) => {
+export const withVueApi = (store: Store): LiveStoreInstance => {
+  const taggedStore = store as VueApiTaggedStore
+
+  if (taggedStore[VueApiMarker]) {
+    return taggedStore
+  }
+
+  taggedStore.useQuery = (queryable) => useQuery(queryable, { store })
+  taggedStore.useClientDocument = (table, id, options) => useClientDocument(table, id, options, { store })
+  taggedStore[VueApiMarker] = true
+
+  return taggedStore
+}
+
+export const useStore = (options?: { store?: Store }) => {
   if (options?.store) {
     return { store: withVueApi(options.store) }
   }
