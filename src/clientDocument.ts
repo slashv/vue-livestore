@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { onUnmounted, shallowRef, computed, type WritableComputedRef } from 'vue'
 
 import {
@@ -7,114 +6,141 @@ import {
   State,
   type RowQuery,
   type LiveQueryDef,
+  type LiveStoreSchema,
   type Store
 } from '@livestore/livestore'
 
 import { useStore } from './store'
 
-export type ClientDocumentTable<Value extends Record<string, any>> =
-  State.SQLite.ClientDocumentTableDef.Trait<
-    any,
-    any,
-    Value,
-    { partialSet: boolean; default: { id: string | SessionIdSymbol; value: Value } }
-  >
+export type ClientDocumentTable<Value extends Record<string, unknown>> = State.SQLite.ClientDocumentTableDef<
+  string,
+  Value,
+  unknown,
+  State.SQLite.ClientDocumentTableOptions<Value>
+>
 
-type UseClientDocumentResult<Value extends Record<string, any>> = {
+type UseClientDocumentResult<
+  TTableDef extends State.SQLite.ClientDocumentTableDef.TraitAny & { Value: Record<string, unknown> },
+> = {
   id: string
-  query$: LiveQueryDef<Value>
+  query$: LiveQueryDef<TTableDef['Value']>
 } & {
-  [K in keyof Value]: WritableComputedRef<Value[K]>
+    [K in keyof TTableDef['Value']]: WritableComputedRef<TTableDef['Value'][K]>
+  }
+
+type ClientDocumentTableWithRecordValue = State.SQLite.ClientDocumentTableDef.TraitAny & {
+  Value: Record<string, unknown>
 }
 
-export function useClientDocument<Value extends Record<string, any>>(
-  table: ClientDocumentTable<Value>,
-  id?: string | SessionIdSymbol,
-  options?: RowQuery.GetOrCreateOptions<ClientDocumentTable<Value>>,
-  storeArg?: { store?: Store }
-): UseClientDocumentResult<Value> {
-  /* Used for clientDocuments only (UI state)
-   *
-   * WARNING: The interface for this is still experimental.
-   * We might choose to revert to state, setState to match
-   * the react bindings and provide a separate composable
-   * or wrapper for better Vue DX.
-   *
-   * Returns:
-   * - ...uiState variabels as writable computed refs
-   * - 'id': Document ID
-   * - 'query$': LiveQuery that can be used to subscribe to changes in document
-   *
-   * This composable functions different to the React hook useClientDocument
-   * which returns state and setState in a more React way. The approach chosen
-   * here allows us to write nice code like this:
-   *
-   * const { newTodoText, filters } = useClientDocument(tables.uiState)
-   * ...
-   * <input v-model="newTodoText" ...>
-   * <select v-model="filters" ...>
-   */
+type ClientDocumentTableWithDefaultId<T extends ClientDocumentTableWithRecordValue> =
+  [State.SQLite.ClientDocumentTableDef.DefaultIdType<T>] extends [never] ? never : T
 
-  const { store } = useStore(storeArg)
+export const useClientDocument: {
+  // case: with default id
+  <TTableDef extends ClientDocumentTableWithDefaultId<ClientDocumentTableWithRecordValue>>(
+    table: TTableDef,
+    id?: State.SQLite.ClientDocumentTableDef.DefaultIdType<TTableDef> | SessionIdSymbol,
+    options?: Partial<RowQuery.GetOrCreateOptions<TTableDef>>,
+    storeArg?: { store?: Store<LiveStoreSchema> }
+  ): UseClientDocumentResult<TTableDef>
 
-  if (!store) {
-    throw new Error('Store not found. Make sure you are using LiveStoreProvider.')
-  }
+  // case: no default id → id arg is required
+  <TTableDef extends ClientDocumentTableWithRecordValue>(
+    table: TTableDef,
+    id: State.SQLite.ClientDocumentTableDef.DefaultIdType<TTableDef> | string | SessionIdSymbol,
+    options?: Partial<RowQuery.GetOrCreateOptions<TTableDef>>,
+    storeArg?: { store?: Store<LiveStoreSchema> }
+  ): UseClientDocumentResult<TTableDef>
+} = <TTableDef extends State.SQLite.ClientDocumentTableDef.Any & { Value: Record<string, unknown> }>(
+  table: TTableDef,
+  id?: State.SQLite.ClientDocumentTableDef.DefaultIdType<TTableDef> | string | SessionIdSymbol,
+  options?: Partial<RowQuery.GetOrCreateOptions<TTableDef>>,
+  storeArg?: { store?: Store<LiveStoreSchema> }
+): UseClientDocumentResult<TTableDef> => {
+    /* Used for clientDocuments only (UI state)
+     *
+     * WARNING: The interface for this is still experimental.
+     * We might choose to revert to state, setState to match
+     * the react bindings and provide a separate composable
+     * or wrapper for better Vue DX.
+     *
+     * Returns:
+     * - ...uiState variabels as writable computed refs
+     * - 'id': Document ID
+     * - 'query$': LiveQuery that can be used to subscribe to changes in document
+     *
+     * This composable functions different to the React hook useClientDocument
+     * which returns state and setState in a more React way. The approach chosen
+     * here allows us to write nice code like this:
+     *
+     * const { newTodoText, filters } = useClientDocument(tables.uiState)
+     * ...
+     * <input v-model="newTodoText" ...>
+     * <select v-model="filters" ...>
+     */
 
-  const resolvedId =
-    typeof id === 'string' || id === SessionIdSymbol
-      ? id
-      : table[State.SQLite.ClientDocumentTableDefSymbol].options.default.id
+    const { store } = useStore(storeArg)
 
-  if (!resolvedId) {
-    throw new Error('Client document requires an ID')
-  }
+    if (!store) {
+      throw new Error('Store not found. Make sure you are using LiveStoreProvider.')
+    }
 
-  const defaultValues = options?.default
-  const idStr = resolvedId === SessionIdSymbol ? store.sessionId : resolvedId
-  const tableName = (table as unknown as State.SQLite.TableDef<any, any>).sqliteDef.name
+    const resolvedId =
+      typeof id === 'string' || id === SessionIdSymbol
+        ? id
+        : table[State.SQLite.ClientDocumentTableDefSymbol].options.default.id
 
-  const query$ = queryDb(table.get(resolvedId, options), {
-    deps: [
-      idStr,
-      tableName,
-      defaultValues ? JSON.stringify(defaultValues) : ''
-    ]
-  })
-  const state = shallowRef<Value>(store.query(query$))
+    if (!resolvedId) {
+      throw new Error('Client document requires an ID')
+    }
 
-  const unsubscribeResult = store.subscribe(
-    query$,
-    (result: Value) => {
-      state.value = result
-    },
-    { label: query$.label }
-  )
-  const unsubscribe = typeof unsubscribeResult === 'function' ? unsubscribeResult : () => { }
+    type Value = TTableDef['Value']
+    const defaultValues: Partial<Value> | undefined = options?.default
+    const idStr = resolvedId === SessionIdSymbol ? store.sessionId : resolvedId
+    const tableName = table.sqliteDef.name
 
-  const setState = (value: Value) => {
-    store.commit(table.set(removeUndefinedValues(value), resolvedId))
-  }
+    const getOptions = defaultValues ? { default: defaultValues } : undefined
 
-  type V = Value
-  const computedFields = {} as { [K in keyof V]: WritableComputedRef<V[K]> }
-  for (const key in state.value) {
-    computedFields[key as keyof V] = computed({
-      get: () => state.value[key as keyof V],
-      set: (value: V[keyof V]) => {
-        setState({ ...state.value, [key]: value })
-      }
+    const query$: LiveQueryDef<Value> = queryDb(table.get(resolvedId, getOptions), {
+      deps: [
+        idStr,
+        tableName,
+        defaultValues ? JSON.stringify(defaultValues) : ''
+      ]
     })
-  }
+    const state = shallowRef<Value>(store.query(query$))
 
-  onUnmounted(() => unsubscribe())
+    const unsubscribeResult = store.subscribe(
+      query$,
+      (result: Value) => {
+        state.value = result
+      },
+      { label: query$.label }
+    )
+    const unsubscribe = typeof unsubscribeResult === 'function' ? unsubscribeResult : () => { }
 
-  return {
-    ...computedFields,
-    id: idStr,
-    query$
+    const setState = (value: Value) => {
+      store.commit(table.set(removeUndefinedValues(value), resolvedId))
+    }
+
+    const computedFields = {} as { [K in keyof Value]: WritableComputedRef<Value[K]> }
+    for (const key of Object.keys(state.value) as (keyof Value)[]) {
+      computedFields[key] = computed<Value[typeof key]>({
+        get: () => state.value[key],
+        set: (value) => {
+          setState({ ...state.value, [key]: value })
+        },
+      })
+    }
+
+    onUnmounted(() => unsubscribe())
+
+    return {
+      ...computedFields,
+      id: idStr,
+      query$
+    }
   }
-}
 
 const removeUndefinedValues = <T extends Record<string, unknown>>(value: T): T => {
   if (typeof value !== 'object' || value === null) {

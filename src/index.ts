@@ -1,4 +1,5 @@
 export { useQuery } from './query'
-export { useStore } from './store'
+export { createStore, useStore } from './store'
+export type { LiveStoreInstance, VueApi } from './store'
 export { useClientDocument } from './clientDocument'
 export { LiveStoreProvider } from './provider'
