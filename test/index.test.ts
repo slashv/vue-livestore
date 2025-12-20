@@ -4,7 +4,7 @@ import { State, Events, Schema, makeSchema, queryDb } from '@livestore/livestore
 import { mount } from '@vue/test-utils'
 import { LiveStoreProvider } from '../src/provider'
 import { useStore, useQuery } from '../src'
-import { defineComponent, h, nextTick } from 'vue'
+import { defineComponent, h, nextTick, Suspense } from 'vue'
 
 const scheduler = typeof setImmediate === 'function' ? setImmediate : setTimeout
 function flushPromises() {
@@ -85,7 +85,7 @@ describe('LiveStore Integration', () => {
       },
       setup() {
         return () =>
-          h('suspense', {}, {
+          h(Suspense, {}, {
             default: () =>
               h(LiveStoreProvider, { options: storeOptions }, { default: () => h(TestComponent) }),
             fallback: () => h('div', {}, 'loading'),

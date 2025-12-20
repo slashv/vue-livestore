@@ -1,4 +1,4 @@
-import { inject, type InjectionKey } from 'vue'
+import { inject, type InjectionKey, type ShallowRef } from 'vue'
 import {
   createStorePromise,
   type CreateStoreOptionsPromise,
@@ -15,7 +15,11 @@ export type VueApi = {
 
 export type LiveStoreInstance<TSchema extends LiveStoreSchema = LiveStoreSchema> = Store<TSchema> & VueApi
 
-export const LiveStoreKey: InjectionKey<LiveStoreInstance> = Symbol('LiveStore')
+type LiveStoreContext<TSchema extends LiveStoreSchema = LiveStoreSchema> =
+  | { store: LiveStoreInstance<TSchema> }
+  | { store: ShallowRef<LiveStoreInstance<TSchema> | null>, promise: Promise<LiveStoreInstance<TSchema>> }
+
+export const LiveStoreKey: InjectionKey<LiveStoreContext> = Symbol('LiveStore')
 
 const VueApiMarker: unique symbol = Symbol('LiveStoreVueApiApplied')
 
@@ -65,5 +69,13 @@ export const useStore = <TSchema extends LiveStoreSchema = LiveStoreSchema>(
     throw new Error('LiveStore instance not provided. Make sure to install the provider and pass a store.')
   }
 
-  return { store: injected as LiveStoreInstance<TSchema> }
+  if ('promise' in injected) {
+    const store = injected.store.value as LiveStoreInstance<TSchema> | null
+    if (store) {
+      return { store }
+    }
+    throw injected.promise
+  }
+
+  return { store: injected.store as LiveStoreInstance<TSchema> }
 }
