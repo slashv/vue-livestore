@@ -15,12 +15,12 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
-    "@livestore/adapter-web": "0.3.1",
-    "@livestore/devtools-vite": "0.3.1",
-    "@livestore/livestore": "0.3.1",
-    "@livestore/peer-deps": "0.3.1",
-    "@livestore/sync-cf": "0.3.1",
-    "@livestore/wa-sqlite": "1.0.5-dev.2",
+    "@livestore/adapter-web": "0.4.0-dev.20",
+    "@livestore/devtools-vite": "0.4.0-dev.20",
+    "@livestore/livestore": "0.4.0-dev.20",
+    "@livestore/peer-deps": "0.4.0-dev.20",
+    "@livestore/sync-cf": "0.4.0-dev.20",
+    "@livestore/wa-sqlite": "0.4.0-dev.20",
     "vue": "^3.5.13",
     "vue-livestore": "workspace:*"
   },

@@ -19,6 +19,12 @@ export default defineConfigWithVueTs(
 
   pluginVue.configs['flat/essential'],
   vueTsConfigs.recommended,
+  {
+    name: 'app/no-explicit-any',
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+    },
+  },
   ...pluginOxlint.configs['flat/recommended'],
   skipFormatting,
 )
