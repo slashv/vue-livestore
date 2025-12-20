@@ -8,7 +8,7 @@ It's strongly recommended to use `bun` or `pnpm` for the simplest and most relia
 
 **Install LiveStore**
 ```bash
-pnpm install @livestore/livestore @livestore/wa-sqlite@1.0.5-dev.2 @livestore/adapter-web @livestore/utils @livestore/peer-deps @livestore/devtools-vite
+pnpm install @livestore/livestore @livestore/wa-sqlite @livestore/adapter-web @livestore/utils @livestore/peer-deps @livestore/devtools-vite
 ```
 **Install vue-livestore**
 ```bash
@@ -93,8 +93,8 @@ const { newTodoText, filters } = useClientDocument(tables.uiState)
 ```
 
 ## TODO
-- [ ] Multiple stores support
 - [x] useClientDocument composable
+- [ ] Multiple stores support
 - [ ] Nuxt integration (might be separate repo or just example implementation)
 
 ## Comments
