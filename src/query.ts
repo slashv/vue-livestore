@@ -10,10 +10,9 @@ const subscriptionLabel = <TResult>(queryable: Queryable<TResult>): string | und
 
 export const useQuery = <
   TResult,
-  TQueryable extends Queryable<TResult>,
   TSchema extends LiveStoreSchema = LiveStoreSchema,
 >(
-  queryable: TQueryable,
+  queryable: Queryable<TResult>,
   options?: { store?: Store<TSchema> }
 ): Readonly<Ref<TResult>> => {
   const { store } = useStore<TSchema>(options)
