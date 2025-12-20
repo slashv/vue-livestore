@@ -38,9 +38,16 @@ Follow the [Vue LiveStore example for an existing project](https://docs.livestor
 
 ```vue
 <template>
-  <LiveStoreProvider :options="{ schema, adapter, storeId }">
-    <Todos />
-  </LiveStoreProvider>
+  <Suspense>
+    <template #default>
+      <LiveStoreProvider :options="storeOptions">
+        <ToDos />
+      </LiveStoreProvider>
+    </template>
+    <template #fallback>
+      <div>Loading LiveStore...</div>
+    </template>
+  </Suspense>
 </template>
 ```
 
