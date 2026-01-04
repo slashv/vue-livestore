@@ -1,7 +1,7 @@
 {
   "name": "vue-livestore",
   "type": "module",
-  "version": "0.3.0-0",
+  "version": "0.3.0-1",
   "license": "MIT",
   "packageManager": "pnpm@10.8.0",
   "repository": "slashv/vue-livestore",
